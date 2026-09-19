@@ -157,7 +157,7 @@ async function runSceneAgent(input: { memory: string; initial: SceneBrief; signa
   return { brief, rounds, status: briefAudit(brief).length === 0 ? "completed" : "degraded", events };
 }
 
-export const maxDuration = 60;
+export const maxDuration = 120;
 
 export async function POST(request: Request): Promise<Response> {
   // 限流：同一 IP 每 15 秒最多 1 次，防止脚本刷量盗刷 AI 额度。

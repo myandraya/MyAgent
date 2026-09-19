@@ -2,6 +2,9 @@ import { vectorizePhoto, type PhotoVectorizeResult } from "../../../lib/photo-ve
 import { extractPhotoSubjectImage, hasImageGenConfig } from "../../../lib/image-gen.ts";
 import { allow, clientIp } from "../../../lib/rate-limit.ts";
 
+// Qwen 抠图 + Potrace 矢量化链路实测约 29s，需放宽函数执行时长上限。
+export const maxDuration = 120;
+
 type PhotoAgentEvent = { round: number; action: "extract_subject" | "repair_holes" | "finish"; observation: string };
 
 type PhotoResult = {
