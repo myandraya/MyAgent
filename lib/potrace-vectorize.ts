@@ -11,15 +11,14 @@
  * 这里封装为 Promise + 提取 path data（d 属性），输出与 image-to-svg.ts 兼容的分层结构。
  */
 
-import { createRequire } from "node:module";
 import { PNG } from "pngjs";
 import type { ContourInfo } from "./image-to-svg.ts";
 
-// potrace 是 CJS 包，无类型声明。
-// 用 createRequire + process.cwd() 确保 Turbopack 打包后仍能定位 node_modules。
-const require = createRequire(`file://${process.cwd()}/package.json`);
+// potrace 是 CJS 包，无类型声明。用静态 import 让打包器能识别依赖，
+// 否则 Turbopack 不会把 potrace 打进 serverless 产物，部署后报 MODULE_NOT_FOUND。
+// CJS 的 module.exports 会被 Turbopack 映射为默认导出的命名空间对象。
+import potrace from "potrace";
 
-// potrace 是 CJS 包，无类型声明
 type PotraceCtor = new () => {
   setParameters(params: Record<string, unknown>): void;
   loadImage(input: Buffer | string, cb: (err: Error | null) => void): void;
@@ -33,7 +32,7 @@ type TraceFn = (
   cb: (err: Error | null, svg: string) => void,
 ) => void;
 
-const PotraceModule = require("potrace") as {
+const PotraceModule = potrace as unknown as {
   Potrace: PotraceCtor;
   default: { trace: TraceFn };
   trace: TraceFn;
