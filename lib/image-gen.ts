@@ -44,14 +44,23 @@ async function requestQwenImage(
       parameters,
     }),
   });
-  if (!response.ok) return null;
+  if (!response.ok) {
+    console.error(`[image-gen] DashScope HTTP ${response.status}:`, (await response.text()).slice(0, 400));
+    return null;
+  }
   const payload = await response.json() as {
     output?: { choices?: { message?: { content?: { image?: string }[] } }[] };
   };
   const imageUrl = payload.output?.choices?.[0]?.message?.content?.find((item) => typeof item.image === "string")?.image;
-  if (!imageUrl) return null;
+  if (!imageUrl) {
+    console.error("[image-gen] 响应中无 image URL:", JSON.stringify(payload).slice(0, 400));
+    return null;
+  }
   const imageResponse = await fetch(imageUrl, { signal });
-  if (!imageResponse.ok) return null;
+  if (!imageResponse.ok) {
+    console.error(`[image-gen] 图片下载 HTTP ${imageResponse.status}`);
+    return null;
+  }
   return { base64: Buffer.from(await imageResponse.arrayBuffer()).toString("base64"), size: 1024 };
 }
 
@@ -135,7 +144,8 @@ export async function generateCitySilhouetteImage(input: {
       { size: "1024*1024", n: 1, prompt_extend: false, watermark: false },
       signal,
     );
-  } catch {
+  } catch (error) {
+    console.error("[image-gen] 场景生图异常:", error);
     return null;
   }
 }
@@ -166,7 +176,8 @@ export async function extractPhotoSubjectImage(input: {
       { n: 1, prompt_extend: false, watermark: false },
       signal,
     );
-  } catch {
+  } catch (error) {
+    console.error("[image-gen] 照片主体提取异常:", error);
     return null;
   }
 }

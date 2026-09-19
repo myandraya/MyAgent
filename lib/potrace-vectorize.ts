@@ -187,7 +187,8 @@ export async function potraceVectorize(base64: string, options?: PotraceOptions)
     // clean line art 风格：所有子路径显式闭合 + 去重 + 丢碎片
     const cleaned = cleanLinePath(scaled);
     return { path: cleaned, ok: cleaned.length > 10 };
-  } catch {
+  } catch (error) {
+    console.error("[potrace-vectorize] 矢量化异常:", error);
     return { path: "", ok: false };
   }
 }
