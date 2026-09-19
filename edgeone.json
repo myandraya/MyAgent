@@ -1,0 +1,7 @@
+{
+  "cloudFunctions": {
+    "nodejs": {
+      "maxDuration": 120
+    }
+  }
+}
