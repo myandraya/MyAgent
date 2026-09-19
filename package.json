@@ -1,0 +1,48 @@
+{
+  "name": "shike-second-hometown",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "shike-mcp": "./mcp/server.ts"
+  },
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "test": "node --experimental-strip-types --test tests/*.test.ts",
+    "test:e2e": "playwright test",
+    "mcp": "node --experimental-strip-types mcp/server.ts"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "1.30.0",
+    "astronomy-engine": "2.1.19",
+    "framer-motion": "13.4.0",
+    "next": "16.3.5",
+    "pngjs": "^7.0.0",
+    "potrace": "^2.1.8",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "three": "0.186.0",
+    "zod": "4.6.5"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.63.0",
+    "@tailwindcss/postcss": "4.3.3",
+    "@types/geojson": "^7946.0.16",
+    "@types/node": "26.6.1",
+    "@types/pngjs": "^6.0.5",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "@types/three": "0.186.0",
+    "eslint": "9.39.1",
+    "eslint-config-next": "16.3.5",
+    "tailwindcss": "4.3.3",
+    "typescript": "5.9.3"
+  },
+  "engines": {
+    "node": ">=22.18"
+  }
+}
