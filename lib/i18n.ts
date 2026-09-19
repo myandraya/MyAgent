@@ -70,6 +70,16 @@ export const DICT: Dict = {
   "photo_pipeline_vectorize": { zh: "矢量化", en: "Vectorize" },
   "photo_pipeline_done": { zh: "完成", en: "Done" },
 
+  // 首页标签栏 + 图库入口
+  "home_tabs_label": { zh: "创作方式", en: "Creation modes" },
+  "tab_create": { zh: "创作", en: "Create" },
+  "tab_gallery": { zh: "图库", en: "Gallery" },
+  "gallery_title": { zh: "从图库，挑一座<br/>想刻下的城", en: "Pick a city you<br/>want to carve" },
+  "gallery_desc": { zh: "没有照片、也不想打字？从各大洲的经典城市剪影里挑一座——点一下，就能刻成镂空作品。", en: "No photo, no words? Pick a classic city silhouette from across the continents — one tap, and it's carved." },
+  "gallery_grid_label": { zh: "城市剪影图库", en: "City silhouette gallery" },
+  "gallery_back_grid": { zh: "← 回到图库", en: "← Back to gallery" },
+  "gallery_source": { zh: "内置矢量剪影", en: "Built-in vector silhouette" },
+
   // 错误（用户可见）
   "err_scene_unavailable": { zh: "场景服务不可用", en: "Scene service unavailable" },
   "err_invalid_data": { zh: "服务返回无效数据", en: "Service returned invalid data" },
@@ -89,6 +99,7 @@ export const DICT: Dict = {
   "share_xhs_done": { zh: "已生成分享素材", en: "Share assets ready" },
   "share_xhs_caption_scene": { zh: "{city} · {landmark}｜一句话，把忘不掉的那座城刻成了剪影 🔭 #拾刻 #AI雕刻 #城市记忆 #第二故乡", en: "{city} · {landmark} | One sentence, and the city I can't forget became a silhouette 🔭 #Shike #AILaser #CityMemory #SecondHome" },
   "share_xhs_caption_photo": { zh: "舍不得删的照片，现在可以刻下来陪我了 ✨ #拾刻 #照片雕刻 #镂空 #回忆", en: "The photo I couldn't delete is now something I can keep forever ✨ #Shike #PhotoLaser #HollowCut #Memory" },
+  "share_xhs_caption_gallery": { zh: "{city} · {name}｜从图库挑了一座城，刻成了镂空剪影 🔭 #拾刻 #城市剪影 #镂空雕刻 #旅行记忆", en: "{city} · {name} | Picked a city from the gallery and carved it into a hollow silhouette 🔭 #Shike #CitySilhouette #HollowCut #TravelMemory" },
   "share_copy": { zh: "复制文案", en: "Copy caption" },
   "share_copied": { zh: "已复制", en: "Copied" },
 };

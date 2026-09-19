@@ -1,6 +1,6 @@
 # 拾刻 Shike · 把一座城，刻进木头里
 
-> 你说一句话，或传一张照片。AI 把它变成一个能真的被激光切出来的矢量稿。
+> 你说一句话、传一张照片，或从图库挑一张剪影。AI 把它变成一个能真的被激光切出来的矢量稿。
 > 情绪交给 AI，几何交给算法。
 
 ---
@@ -11,11 +11,11 @@
 
 拾刻要做的，是把这份「带不走」变成「带得走」。你不需要会画图，不需要懂激光切割，甚至不需要知道 SVG 是什么 —— 你只需要**说一句关于那座城的话**，或者**上传一张照片**。剩下的，AI 会一路想到「能制造为止」。
 
-首页是一张铺满全屏的世界地图：鼠标移到哪，地图就在那里亮起一圈柔和蓝光，移开就熄灭。两个入口并排，等你把记忆交出来。
+首页是一张铺满全屏的世界地图：鼠标移到哪，地图就在那里亮起一圈柔和蓝光，移开就熄灭。顶部标签栏切换「创作 / 图库」——创作是两条入口，图库是内置剪影。等你把记忆交出来。
 
 ---
 
-## 两条工作流
+## 三条工作流
 
 ### 入口一 · 说一句那座城
 
@@ -37,6 +37,16 @@
 2. **Otsu 自适应二值化 + 连通域兜底**。Qwen 调用失败？退回纯本地算法，照样提取出干净的黑白主体。
 3. **Potrace 镂空矢量化**。输出 `fill-rule=evenodd` 的复合路径——主体是实体，孔洞是镂空，一张图就能切穿。
 
+### 入口三 · 从图库挑一张
+
+> 没有本地照片、也不想打字？点开图库，挑一张内置的城市剪影，一键出图。
+
+1. **内置城市剪影图库**。手绘了全球 11 处经典地标的闭合矢量剪影（埃菲尔铁塔、自由女神像、悉尼歌剧院、大本钟、长城、金字塔、富士山、基督像、哈利法塔、罗马斗兽场、比萨斜塔），每一张都是「外轮廓 + 内部孔洞」的 evenodd 复合路径，天然激光可雕刻。
+2. **点选即出图，零失败**。点一下剪影，直接走照片那条 Potrace 镂空链路生成 SVG——不联网、不调 AI、不用等，秒出结果。
+3. **同样能下载、能分享**。生成的镂空稿和照片入口完全一致，照旧支持下载 SVG 和「一键分享小红书」。
+
+> **未来方向**：图库的下一版会放进真实的城市景色照片，走 LLM 生成链路，产出更高质量的成品图——只是目前 AI API 额度有限，暂时没接入，先用这套零成本的矢量剪影把「先拿到结果」的体验跑通。
+
 ---
 
 ## 让人眼前一亮的几个细节
@@ -46,22 +56,52 @@
 - **AI 会失败，但你不必等**。两条链路都有多层降级，AI 挂了就切本地确定性算法，你永远拿得到一个可制造的结果。
 - **Apple 流体交互**。毛玻璃材质、弹簧物理按压、生成结果逐笔描画揭示、下载成功弹跳、错误抖动入场。
 - **中英双语**。顶栏「中 / EN」一键切换，全部界面即时翻译。
+- **零门槛的图库入口**。不调 AI、不联网、不用打字，点一张内置剪影就出可雕刻的镂空稿——最快的「先拿到结果」路径。
 - **一键分享小红书**。canvas 原生重画 SVG（不经过 Image，规避 Safari 的 canvas 污染），直接生成 PNG + 带话题文案，复制即发。
 - **隐私默认脱敏**。街区、门牌号这类个人信息，默认不会写进生成的文件里。
 - **接口限流防刷**。两个花钱的 AI 接口（生图、抠图）按 IP 做了限流，超频直接返回 `429`，挡住脚本盗刷额度。密钥只走服务端，永不进前端。
 
 ---
 
-## 本地运行
+## 本地运行（完整步骤）
 
-要求 Node.js 22.18+。
+### 0. 前置要求
+
+- **Node.js 22.18+**（项目在 `package.json` 里声明了 `engines.node >= 22.18`）。推荐用 [nvm](https://github.com/nvm-sh/nvm) 管理版本：
+
+  ```bash
+  nvm install 22
+  nvm use 22
+  node -v   # 应输出 v22.x.x
+  ```
+
+- **npm**（随 Node 一起安装）。无需数据库、无需任何外部服务——本项目是纯 Next.js 应用，全部数据在内存和本地文件里。
+
+### 1. 安装依赖
 
 ```bash
 npm install
+```
+
+### 2. 启动开发服务器
+
+```bash
 npm run dev
 ```
 
-打开 `http://localhost:3000`。`.env.local` 默认是占位 key，会自动走离线兜底。接入真实 AI 服务时填入：
+打开 `http://localhost:3000` 即可。
+
+**零配置也能跑通。** 项目根目录已带 `.env.example`，`npm run dev` 时即使不配任何 key，两条 AI 链路也会自动降级到本地确定性算法——首页地图、记忆问答、参数化天际线、图库剪影、Potrace 矢量化、SVG/PNG 下载，全部功能完整可用，只是少了「AI 思考回放」和「AI 生图/抠图」那一步。
+
+### 3.（可选）接入真实 AI 服务
+
+想要完整的 AI 体验，复制模板并填入真实 key：
+
+```bash
+cp .env.example .env.local
+```
+
+然后编辑 `.env.local`：
 
 ```dotenv
 # DeepSeek —— 负责「想」：城市识别 + ReAct 选景
@@ -70,13 +110,38 @@ DEEPSEEK_MODEL=deepseek-flash
 
 # 阿里云百炼 Qwen-Image —— 负责「画」：剪影生成 + 照片主体提取
 DASHSCOPE_API_KEY=sk-your-dashscope-key
-QWEN_IMAGE_MODEL=qwen-image-3.0        # 可选，默认 qwen-image-3.0
+DASHSCOPE_WORKSPACE_ID=your-workspace-id   # 可选，专属端点时填
+QWEN_IMAGE_MODEL=qwen-image-3.0            # 可选，默认 qwen-image-3.0
 ```
+
+Key 获取：
 
 - DeepSeek key：https://platform.deepseek.com/
 - Qwen-Image key：https://bailian.console.aliyun.com/（百炼控制台）
 
-密钥只由服务端读取，禁止加 `NEXT_PUBLIC_` 前缀。两个 key 都缺失时，两条链路会自动降级到本地确定性算法，功能完整可用，只是少了 AI 生成的那一步。
+> ⚠️ 密钥只由服务端（API Route）读取，**禁止**加 `NEXT_PUBLIC_` 前缀，否则会打包进前端泄露。`.env.local` 已在 `.gitignore` 中忽略，不会进仓库。两个 key 都缺失时，两条链路自动降级到本地确定性算法。
+
+### 4.（可选）生产模式运行
+
+模拟线上环境、验证部署产物：
+
+```bash
+npm run build
+npm run start
+```
+
+打开 `http://localhost:3000`。`npm run build` 会先跑 TypeScript 类型检查再产出优化构建，`npm run start` 以生产模式服务。
+
+### 5. 质量校验（可选）
+
+```bash
+npm run typecheck   # TypeScript 类型检查
+npm run lint        # ESLint
+npm run test        # 单元测试（纯 Node，无需浏览器）
+npm run test:e2e    # Playwright 端到端测试（需先 npm run dev）
+```
+
+
 
 ---
 
@@ -86,6 +151,7 @@ QWEN_IMAGE_MODEL=qwen-image-3.0        # 可选，默认 qwen-image-3.0
 2. 选「说一句那座城」，输入「我想念悉尼海港边的歌剧院」——看 DeepSeek 的 ReAct 思考逐条回放，Qwen 生成剪影，Potrace 矢量化，结果逐笔描画揭示。
 3. 查看 DFM 制造检查结果，下载 SVG；或点「分享到小红书」生成 PNG + 文案。
 4. 回首页选「刻下一张照片」，上传一张主体清晰的照片——看 Qwen 抠图，Potrace 输出镂空 SVG。
+5. 顶栏切到「图库」，点一张剪影（比如埃菲尔铁塔）——不联网、不调 AI，秒出一张可雕刻的镂空稿，同样能下载和分享。
 
 ---
 
@@ -96,6 +162,7 @@ QWEN_IMAGE_MODEL=qwen-image-3.0        # 可选，默认 qwen-image-3.0
                                       ↓ (AI 失败 / 未配置)                                        ├→ DFM 检查 → SVG 下载 / 分享小红书
                                     参数化天际线兜底 ──────────────────────────────────────────────┘
 入口 B 照片   ─→ Qwen-Image 主体提取(≤3轮) ─→ Otsu/连通域兜底 ─→ Potrace 镂空矢量化 ──────────────┘
+入口 C 图库   ─→ 内置剪影(11 地标，evenodd 闭合 path) ─→ 复用 Potrace 镂空链路 ──────────────────────┘
 ```
 
 关键模块：
@@ -109,6 +176,8 @@ QWEN_IMAGE_MODEL=qwen-image-3.0        # 可选，默认 qwen-image-3.0
 - `lib/i18n.ts`：中英双语词典 + I18nContext + useI18n。
 - `lib/rate-limit.ts`：进程内 IP 限流（`allow` + `clientIp`），挡住脚本刷量，护住 AI 额度。
 - `lib/share.ts`：SVG → PNG 的 canvas 原生重画（Path2D，规避 Safari taint）+ 文案复制。
+- `data/gallery.ts`：内置 11 处城市地标的手绘闭合剪影（0..100 坐标系，外轮廓 + 孔洞 evenodd）。
+- `components/GalleryEntry.tsx`：图库页，点选剪影 → 包装成镂空设计 → Potrace 链路出 SVG + 下载/分享。
 - `data/world.geo.json`：Natural Earth 110m 国家边界（首页背景地图）。
 
 ---
@@ -123,22 +192,11 @@ QWEN_IMAGE_MODEL=qwen-image-3.0        # 可选，默认 qwen-image-3.0
 
 ---
 
-## 校验
-
-```bash
-npm run test
-npm run test:e2e
-npm run typecheck
-npm run lint
-npm run build
-```
-
----
-
 ## 已知限制
 
 - 「分享到小红书」生成 PNG + 文案素材供手动发布；小红书没有开放发布 API，无法自动发布到账号。
 - 照片主体提取用 Qwen-Image 图像编辑能力，本地兜底是 Otsu/连通域，不含 rembg/SAM 人物抠图。
+- 图库的剪影是手绘矢量轮廓，追求「可雕刻」而非照片级还原；想要更贴合实际建筑/人物的轮廓，走照片入口更合适。后续会放入真实景色照片并接 LLM 生成更高质量的图，目前受 AI API 额度限制暂未接入。
 - 未配置任何 AI key 时，两条链路都能用纯本地算法跑通，但成图精度和「AI 思考过程」会降级为确定性兜底。
 
 ---
