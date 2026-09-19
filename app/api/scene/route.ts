@@ -3,6 +3,7 @@ import { generateCitySilhouetteImage, hasImageGenConfig } from "../../../lib/ima
 import { potraceVectorize } from "../../../lib/potrace-vectorize.ts";
 import { composeSilhouette, composeSilhouetteSelection } from "../../../lib/silhouette.ts";
 import { generateFallbackSilhouette } from "../../../lib/silhouette-generators.ts";
+import { allow, clientIp } from "../../../lib/rate-limit.ts";
 
 type SceneResult = {
   city: string;
@@ -159,6 +160,11 @@ async function runSceneAgent(input: { memory: string; initial: SceneBrief; signa
 export const maxDuration = 60;
 
 export async function POST(request: Request): Promise<Response> {
+  // 限流：同一 IP 每 15 秒最多 1 次，防止脚本刷量盗刷 AI 额度。
+  if (!allow(clientIp(request), 1, 15_000)) {
+    return Response.json({ error: "生成太频繁，请稍后再试。" }, { status: 429 });
+  }
+
   let prompt = "";
   try {
     const body = await request.json() as { prompt?: unknown };

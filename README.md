@@ -48,6 +48,7 @@
 - **中英双语**。顶栏「中 / EN」一键切换，全部界面即时翻译。
 - **一键分享小红书**。canvas 原生重画 SVG（不经过 Image，规避 Safari 的 canvas 污染），直接生成 PNG + 带话题文案，复制即发。
 - **隐私默认脱敏**。街区、门牌号这类个人信息，默认不会写进生成的文件里。
+- **接口限流防刷**。两个花钱的 AI 接口（生图、抠图）按 IP 做了限流，超频直接返回 `429`，挡住脚本盗刷额度。密钥只走服务端，永不进前端。
 
 ---
 
@@ -106,6 +107,7 @@ QWEN_IMAGE_MODEL=qwen-image-3.0        # 可选，默认 qwen-image-3.0
 - `lib/potrace-vectorize.ts`、`lib/silhouette.ts`、`lib/silhouette-generators.ts`：矢量化、剪影设计、参数化天际线兜底。
 - `lib/photo-vectorize.ts`：Otsu 自适应二值化 + 连通域清理（照片兜底）。
 - `lib/i18n.ts`：中英双语词典 + I18nContext + useI18n。
+- `lib/rate-limit.ts`：进程内 IP 限流（`allow` + `clientIp`），挡住脚本刷量，护住 AI 额度。
 - `lib/share.ts`：SVG → PNG 的 canvas 原生重画（Path2D，规避 Safari taint）+ 文案复制。
 - `data/world.geo.json`：Natural Earth 110m 国家边界（首页背景地图）。
 

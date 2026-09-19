@@ -1,5 +1,6 @@
 import { vectorizePhoto, type PhotoVectorizeResult } from "../../../lib/photo-vectorize.ts";
 import { extractPhotoSubjectImage, hasImageGenConfig } from "../../../lib/image-gen.ts";
+import { allow, clientIp } from "../../../lib/rate-limit.ts";
 
 type PhotoAgentEvent = { round: number; action: "extract_subject" | "repair_holes" | "finish"; observation: string };
 
@@ -35,6 +36,11 @@ function photoAudit(result: PhotoVectorizeResult): string[] {
  *   5. 输出 0..100 坐标系的复合 path（fill-rule=evenodd 实现镂空）
  */
 export async function POST(request: Request): Promise<Response> {
+  // 限流：同一 IP 每 15 秒最多 1 次，防止脚本刷量盗刷 AI 额度。
+  if (!allow(clientIp(request), 1, 15_000)) {
+    return Response.json({ error: "上传太频繁，请稍后再试。" }, { status: 429 });
+  }
+
   try {
     const formData = await request.formData();
     const file = formData.get("photo");
