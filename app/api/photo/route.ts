@@ -75,7 +75,7 @@ export async function POST(request: Request): Promise<Response> {
     let source: "qwen" | "local" = "local";
     if (hasImageGenConfig()) {
       for (let round = 1; round <= 3; round += 1) {
-        const extracted = await extractPhotoSubjectImage({ base64: currentImage, signal: request.signal, feedback: feedback || undefined });
+        const extracted = await extractPhotoSubjectImage({ base64: currentImage, signal: AbortSignal.timeout(45_000), feedback: feedback || undefined });
         if (!extracted) break;
         currentImage = extracted.base64;
         const candidate = await vectorizePhoto(currentImage, { thresholdBias });

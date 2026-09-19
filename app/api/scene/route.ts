@@ -192,14 +192,14 @@ export async function POST(request: Request): Promise<Response> {
   let agentResult: Awaited<ReturnType<typeof runSceneAgent>> | undefined;
   const canUseDeepSeek = hasDeepSeekKey();
   if (canUseDeepSeek) {
-    agentResult = await runSceneAgent({ memory: prompt, initial: sceneBrief, signal: request.signal });
+    agentResult = await runSceneAgent({ memory: prompt, initial: sceneBrief, signal: AbortSignal.timeout(45_000) });
     sceneBrief = agentResult.brief;
   }
   const { city: cityName, cityEn, country, landmark, landmarkEn, visualAnchors, subjectType, composition } = sceneBrief;
 
   // 4. 检索增强后的视觉简报 → 图像生成 → Potrace 闭合轮廓。
   if (hasImageGenConfig()) {
-    const image = await generateCitySilhouetteImage({ city: cityName, cityEn, country, landmark, landmarkEn, visualAnchors, composition, subjectType, signal: request.signal });
+    const image = await generateCitySilhouetteImage({ city: cityName, cityEn, country, landmark, landmarkEn, visualAnchors, composition, subjectType, signal: AbortSignal.timeout(30_000) });
     if (image) {
       const result = await potraceVectorize(image.base64, {
         // 抑制碎片并平滑轮廓，保留 Potrace 的闭合复合路径。
