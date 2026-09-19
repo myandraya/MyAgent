@@ -7,3 +7,9 @@ coverage/
 *.log
 .DS_Store
 shike-output/
+
+# 编辑器 / Agent 本地配置与工作日志（不进仓库）
+.codebuddy/
+.workbuddy/
+.idea/
+.vscode/
