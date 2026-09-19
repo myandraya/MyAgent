@@ -69,6 +69,8 @@
 
 ![EdgeOne Pages 部署概览：生产环境运行中](./docs/images/edgeone-deployment.png)
 
+**正式域名的进展**：已申请自定义域名 **`myagent-shike.asia`**，当前正在推进域名实名认证（腾讯云）与 EdgeOne 归属权验证（DNS TXT 记录）。认证与解析生效后，即可绑定为稳定的公开访问入口。
+
 **为什么本次评审以本地部署为准**：线上要有一个稳定可公开访问的入口，需要给项目绑定自定义域名；而绑定域名的第一步是**域名实名认证审核（腾讯云审核时长最长 24 小时）**，无法在评审前的时间窗口内完成审核 → 解析生效 → 证书签发这一整套流程。因此评委体验请采用下方的「本地运行」方式——克隆仓库后 10 分钟内即可完整跑起来。
 
 ---
@@ -148,6 +150,22 @@ Key 获取：
 
 > ⚠️ 密钥只由服务端（API Route）读取，**禁止**加 `NEXT_PUBLIC_` 前缀，否则会打包进前端泄露。`.env.local` 已在 `.gitignore` 中忽略，不会进仓库。两个 key 都缺失时，两条链路自动降级到本地确定性算法。
 
+### 模型可以替换吗？
+
+可以。拾刻的 AI 能力分「想」和「画」两块，可替换程度不同：
+
+| 环节 | 当前实现 | 接口协议 | 替换难度 |
+|------|---------|---------|---------|
+| **「想」城市识别 + ReAct** | DeepSeek（`lib/deepseek.ts`） | **OpenAI 兼容** `/chat/completions` | **易**——改 base URL + 模型名即可 |
+| **「画」剪影生成 + 照片抠图** | 阿里云百炼 Qwen-Image（`lib/image-gen.ts`） | DashScope 专有接口 | **较难**——需重写调用层 |
+
+**DeepSeek 换起来很简单**：`lib/deepseek.ts` 调的是标准的 OpenAI 兼容 `chat/completions` 协议，任何支持该协议 + **JSON 输出模式（`response_format: json_object`）**的模型都能直接替换，例如 OpenAI GPT、Moonshot Kimi、智谱 GLM、通义 Qwen-Max、或自建的 vLLM/One-API 网关。替换时只需：
+
+1. 改 `lib/deepseek.ts` 里的 `https://api.deepseek.com/chat/completions` 为你的模型网关地址；
+2. 在 `.env.local` 里把 `DEEPSEEK_API_KEY` 换成新模型的 key、`DEEPSEEK_MODEL` 换成对应模型名。
+
+**Qwen-Image 替换要改代码**：`lib/image-gen.ts` 用的是阿里云百炼 DashScope 的专有接口（`multimodal-generation`），不是 OpenAI 兼容协议，而且照片抠图依赖它的「图生图/图像编辑」能力。换成其他生图模型（如 DALL·E、Stable Diffusion 等）需要重写 `requestQwenImage` 这一层，不是改几个环境变量就能完成的。
+
 ### 5.（可选）生产模式运行
 
 模拟线上环境、验证部署产物：
@@ -190,6 +208,8 @@ npm run test:e2e    # Playwright 端到端测试（需先 npm run dev）
                                     参数化天际线兜底 ──────────────────────────────────────────────┘
 入口 B 照片   ─→ Qwen-Image 主体提取(≤3轮) ─→ Otsu/连通域兜底 ─→ Potrace 镂空矢量化 ──────────────┘
 入口 C 图库   ─→ 内置剪影(11 地标，evenodd 闭合 path) ─→ 复用 Potrace 镂空链路 ──────────────────────┘
+
+（入口 A / B 的 AI 接口前均有 IP 限流：同一 IP 15 秒 1 次，超频返回 429）
 ```
 
 关键模块：
