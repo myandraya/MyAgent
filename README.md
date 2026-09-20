@@ -65,11 +65,11 @@
 
 ## 线上访问
 
-项目已部署到腾讯云 **EdgeOne Pages**（Next.js 全栈应用，API 走 Cloud Functions），并绑定自定义域名提供稳定公开访问：
+项目已部署到腾讯云 **EdgeOne Pages**（Next.js 全栈应用，API 走 Cloud Functions），并绑定自定义域名提供稳定公开访问。
 
-> **🔗 正式入口：https://myagent-shike.asia**
+> **🔗 正式入口已上线（地址隐去）。如需访问，请通过仓库 Issues 或邮件留言，作者会提供访问链接。**
 
-评委可直接打开上述地址体验全部功能（三条工作流 + AI 思考回放 + SVG/PNG 下载），无需本地部署。下图为 EdgeOne 控制台的项目概览实况：
+体验全部功能（三条工作流 + AI 思考回放 + SVG/PNG 下载），无需本地部署。下图为 EdgeOne 控制台的项目概览实况：
 
 ![EdgeOne Pages 部署概览：生产环境运行中](./docs/images/edgeone-deployment.png)
 
@@ -198,7 +198,7 @@ npm run test:e2e    # Playwright 端到端测试（需先 npm run dev）
 
 ## 三分钟演示路径
 
-> 直接在浏览器打开 **https://myagent-shike.asia** 即可开始（或本地 `npm run dev` 后访问 `http://localhost:3000`）。
+> 访问方式：线上正式入口（地址隐去，如需访问请留言获取）；或本地 `npm run dev` 后访问 `http://localhost:3000`。
 
 1. 首页世界地图：移动鼠标，地图跟随亮起；移开熄灭。
 2. 选「说一句那座城」，输入「我想念悉尼海港边的歌剧院」——看 DeepSeek 的 ReAct 思考逐条回放，Qwen 生成剪影，Potrace 矢量化，结果逐笔描画揭示。
