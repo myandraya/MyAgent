@@ -31,6 +31,8 @@ export type GalleryItem = {
   tagline: string;
   /** 一句情感文案（英文） */
   taglineEn: string;
+  /** MakerMuse 场景卡角标：hot 热门 / new 新品 / undefined 无 */
+  badge?: "hot" | "new";
 };
 
 /**
@@ -49,6 +51,7 @@ export const GALLERY: GalleryItem[] = [
     continentEn: "Europe",
     tagline: "铁塔下的黄昏，是巴黎最温柔的时分",
     taglineEn: "Dusk beneath the tower, Paris at its gentlest",
+    badge: "hot",
     // 塔身：底部弧形基座 → 收窄 → 中间平台 → 塔尖。内部 3 个镂空拱门。
     path:
       "M50 4 L54 20 L57 20 L57 40 L54 40 L60 58 L60 62 L58 64 L58 70 L68 82 L68 96 L32 96 L32 82 L42 70 L42 64 L40 62 L40 58 L46 40 L43 40 L43 20 L46 20 Z " +
@@ -87,6 +90,7 @@ export const GALLERY: GalleryItem[] = [
     continentEn: "Oceania",
     tagline: "风帆一样的屋顶，停泊在南半球的港湾",
     taglineEn: "Sail-shaped roofs docked in a southern harbor",
+    badge: "hot",
     // 风帆屋顶（几片叠起的贝壳）+ 基座，内部镂空窗格。
     path:
       "M12 62 L24 40 L34 62 Z " +
@@ -201,6 +205,7 @@ export const GALLERY: GalleryItem[] = [
     continentEn: "Asia",
     tagline: "直插云端的尖塔，是沙漠里的野心",
     taglineEn: "A spire piercing the clouds, ambition in the desert",
+    badge: "new",
     // 螺旋收窄的塔身，内部镂空窗带。
     path:
       "M50 2 L54 2 L54 12 L50 12 Z " +

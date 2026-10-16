@@ -29,9 +29,8 @@ test("照片像素确定性转换为真实毫米半调 SVG", () => {
   assert.equal(checkPhotoDfm(first).passed, true);
   const svg = generatePhotoSvg(first);
   assert.match(svg, /width="180mm"/);
-  assert.match(svg, /id="cut-through"[\s\S]*#ff0000/);
-  assert.match(svg, /id="vector-score"[\s\S]*#0000ff/);
-  assert.match(svg, /id="engraving"[\s\S]*#000000/);
+  assert.doesNotMatch(svg, /id="cut-through"|stroke="#ff0000"|id="vector-score"/, "无红色外框/蓝色 score 层");
+  assert.match(svg, /id="engrave-layer"[\s\S]*#000000/);
   assert.doesNotMatch(svg, /<image|data:image/);
 });
 
@@ -47,9 +46,9 @@ test("任意城市名可生成 clean line art 单线轮廓剪影且结果可重�
   // 统一尺寸 180×120mm
   assert.match(svg, /width="180mm" height="120mm"/);
   assert.match(svg, /viewBox="0 0 180 120"/);
-  // 两层结构：红色外边框 + 黑色描线
-  assert.match(svg, /id="cut-through"[^>]*stroke="#ff0000"/, "切穿层红色");
+  // 单层结构：黑色描线（红色切穿外框已移除）
   assert.match(svg, /id="engraving-line"[^>]*stroke="#000000"[^>]*stroke-width="0.2"/, "描线层黑色 0.2mm");
+  assert.doesNotMatch(svg, /id="cut-through"|stroke="#ff0000"/, "不再有红色切穿层");
   // clean line art: 所有 path 必须 fill="none"
   assert.match(svg, /fill="none"/);
   assert.doesNotMatch(svg, /fill="#000000"|fill-rule="evenodd"/, "不允许实心填充");
@@ -79,11 +78,11 @@ test("参数化兜底生成器输出 clean line art 单线轮廓（统一在 eng
   assert.equal(checkSilhouetteDfm(design).passed, true);
 });
 
-test("SVG clean line art 风格：两层工艺 + fill=none", () => {
+test("SVG clean line art 风格：单层工艺 + fill=none", () => {
   const design = composeSilhouette("我想念京都清水寺的钟声");
   const svg = generateSilhouetteSvg(design);
-  // 切穿层红色 0.08mm（仅外边框）
-  assert.match(svg, /id="cut-through"[^>]*stroke="#ff0000"[^>]*stroke-width="0.08"/, "切穿层红色 0.08mm");
+  // 红色切穿外框已移除，不再有 cut-through 层
+  assert.doesNotMatch(svg, /id="cut-through"|stroke="#ff0000"/, "不再有红色切穿层");
   // 描线层黑色 0.2mm（主体轮廓 + 结构线）
   assert.match(svg, /id="engraving-line"[^>]*stroke="#000000"[^>]*stroke-width="0.2"/, "描线层黑色 0.2mm");
   // clean line art: 所有 path 必须 fill="none"
@@ -122,7 +121,7 @@ test("Potrace 复合轮廓按闭合填充雕刻导出，不再伪装成单线稿
   assert.equal(hasOnlyClosedSubpaths(compound), true);
   assert.equal(checkSilhouetteDfm(design).passed, true);
   const svg = generateSilhouetteSvg(design);
-  assert.match(svg, /id="engraving-fill"[^>]*fill="#000000"[^>]*fill-rule="evenodd"[^>]*stroke="none"/);
+  assert.match(svg, /id="engrave-layer"[^>]*fill="#000000"[^>]*fill-rule="evenodd"[^>]*stroke="none"/);
   assert.match(svg, /translate\(6 6\) scale\(1\.68 1\.08\)/, "内容应完整落在 180×120mm 画布内");
   assert.doesNotMatch(svg, /scale\(1\.8\)/, "不得再纵向裁掉轮廓");
 });
@@ -509,10 +508,10 @@ test("HollowPhotoDesign 生成闭合填充雕刻 SVG", () => {
     minFeatureMm: 0.6,
   };
   const svg = generateHollowPhotoSvg(design);
-  // 切穿层红色 0.08mm（外边框）
-  assert.match(svg, /id="cut-through"[^>]*stroke="#ff0000"[^>]*stroke-width="0.08"/, "切穿层红色 0.08mm");
+  // 无红色切穿外框（已对齐 MakerMuse 规范）
+  assert.doesNotMatch(svg, /id="cut-through"|stroke="#ff0000"/, "无红色切穿外框");
   // Potrace 复合路径必须作为 evenodd 填充雕刻层，孔洞由子路径镂空
-  assert.match(svg, /id="engraving-fill"[^>]*fill="#000000"[^>]*fill-rule="evenodd"[^>]*stroke="none"/);
+  assert.match(svg, /id="engrave-layer"[^>]*fill="#000000"[^>]*fill-rule="evenodd"[^>]*stroke="none"/);
   assert.match(svg, /translate\(36 6\) scale\(1\.08\)/, "雕刻内容四周应保留安全边距");
   assert.match(svg, /width="180mm"/, "宽度 180mm");
   assert.match(svg, /height="120mm"/, "高度 120mm");

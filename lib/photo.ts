@@ -69,7 +69,8 @@ export function checkPhotoDfm(design: PhotoDesign, deviceId = "falcon-10w"): Dfm
 
 export function generatePhotoSvg(design: PhotoDesign): string {
   const metadata = JSON.stringify(design).replaceAll("&", "&amp;").replaceAll("<", "&lt;");
-  return `<?xml version="1.0" encoding="UTF-8"?>\n<svg xmlns="http://www.w3.org/2000/svg" width="${design.widthMm}mm" height="${design.heightMm}mm" viewBox="0 0 ${design.widthMm} ${design.heightMm}" data-units="mm">\n  <title>Shike photo halftone</title>\n  <metadata id="shike-photo-design">${metadata}</metadata>\n  <g id="cut-through" fill="none" stroke="#ff0000" stroke-width="${design.cutStrokeMm}"><rect x="0.04" y="0.04" width="${n(design.widthMm - 0.08)}" height="${n(design.heightMm - 0.08)}" rx="4"/></g>\n  <g id="vector-score" fill="none" stroke="#0000ff" stroke-width="0.5"/>\n  <g id="engraving" fill="#000000" stroke="none">${design.dots.map((dot) => `<circle cx="${dot.x}" cy="${dot.y}" r="${dot.radius}"/>`).join("")}</g>\n</svg>`;
+  // 对齐 MakerMuse 规范：无红色外框、无对位孔；半调点阵为黑色雕刻层。
+  return `<?xml version="1.0" encoding="UTF-8"?>\n<svg xmlns="http://www.w3.org/2000/svg" width="${design.widthMm}mm" height="${design.heightMm}mm" viewBox="0 0 ${design.widthMm} ${design.heightMm}" data-units="mm">\n  <title>Shike photo halftone</title>\n  <metadata id="shike-photo-design">${metadata}</metadata>\n  <g id="engrave-layer" fill="#000000" stroke="none">${design.dots.map((dot) => `<circle cx="${dot.x}" cy="${dot.y}" r="${dot.radius}"/>`).join("")}</g>\n</svg>`;
 }
 
 /** 镂空版照片 DFM 检查：验证轮廓非空、闭合和画布包络。 */
@@ -95,9 +96,8 @@ export function checkHollowPhotoDfm(design: HollowPhotoDesign, deviceId = "falco
  *   - 主体外轮廓和内部孔洞必须是闭合子路径
  *   - 物理尺寸 180×120mm
  *
- * 两层结构：
- *   <g id="cut-through" stroke="#ff0000" stroke-width=0.08>  外边框（红色，切穿）
- *   <g id="engraving-fill" fill="#000000">                  主体 + 镂空孔洞（黑色，填充雕刻）
+ * 单层结构（对齐 MakerMuse 规范：无红色外框、无对位孔）：
+ *   <g id="engrave-layer" fill="#000000">                  主体 + 镂空孔洞（黑色，填充雕刻）
  */
 export function generateHollowPhotoSvg(design: HollowPhotoDesign): string {
   const metadata = JSON.stringify({
@@ -106,7 +106,7 @@ export function generateHollowPhotoSvg(design: HollowPhotoDesign): string {
     minFeatureMm: design.minFeatureMm,
     style: "laser-vector",
   }).replaceAll("&", "&amp;").replaceAll("<", "&lt;");
-  // 复合 path 为 0..100；四周至少留 6mm，避免雕刻内容与切穿外框重叠。
+  // 复合 path 为 0..100；四周至少留 6mm，避免雕刻内容贴近边缘。
   const scale = Math.min((design.widthMm - 12) / 100, (design.heightMm - 12) / 100);
   const offsetX = (design.widthMm - 100 * scale) / 2;
   const offsetY = (design.heightMm - 100 * scale) / 2;
@@ -114,14 +114,7 @@ export function generateHollowPhotoSvg(design: HollowPhotoDesign): string {
 <svg xmlns="http://www.w3.org/2000/svg" width="${n(design.widthMm)}mm" height="${n(design.heightMm)}mm" viewBox="0 0 ${n(design.widthMm)} ${n(design.heightMm)}" data-units="mm">
   <title>Shike photo engraving</title>
   <metadata id="shike-hollow-photo-design">${metadata}</metadata>
-  <g id="cut-through" fill="none" stroke="#ff0000" stroke-width="${design.cutStrokeMm}" stroke-linecap="round" stroke-linejoin="round">
-    <rect x="0.04" y="0.04" width="${n(design.widthMm - 0.08)}" height="${n(design.heightMm - 0.08)}" rx="6" fill="none"/>
-    <circle cx="6" cy="6" r="1" fill="none"/>
-    <circle cx="${n(design.widthMm - 6)}" cy="6" r="1" fill="none"/>
-    <circle cx="6" cy="${n(design.heightMm - 6)}" r="1" fill="none"/>
-    <circle cx="${n(design.widthMm - 6)}" cy="${n(design.heightMm - 6)}" r="1" fill="none"/>
-  </g>
-  <g id="engraving-fill" fill="#000000" fill-rule="evenodd" stroke="none">
+  <g id="engrave-layer" fill="#000000" fill-rule="evenodd" stroke="none">
     <g transform="translate(${n(offsetX)} ${n(offsetY)}) scale(${n(scale)})"><path d="${design.cutPath}"/></g>
   </g>
 </svg>`;

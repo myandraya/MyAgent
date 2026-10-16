@@ -1,7 +1,7 @@
 import { callDeepSeekJson, hasDeepSeekKey } from "../../../lib/deepseek.ts";
 import { generateCitySilhouetteImage, hasImageGenConfig } from "../../../lib/image-gen.ts";
 import { potraceVectorize } from "../../../lib/potrace-vectorize.ts";
-import { composeSilhouette, composeSilhouetteSelection } from "../../../lib/silhouette.ts";
+import { composeSilhouette, composeSilhouetteSelection, validateSceneDesign } from "../../../lib/silhouette.ts";
 import { generateFallbackSilhouette } from "../../../lib/silhouette-generators.ts";
 import { allow, clientIp } from "../../../lib/rate-limit.ts";
 
@@ -120,7 +120,7 @@ async function runSceneAgent(input: { memory: string; initial: SceneBrief; signa
     const result = await callDeepSeekJson({
       signal: input.signal,
       timeoutMs: 6_000,
-      system: `你是拾刻的场景生成 ReAct 调度器。每轮只输出 JSON，不得输出私有思维链：
+      system: `你是城市木刻师的场景生成 ReAct 调度器。每轮只输出 JSON，不得输出私有思维链：
 {"action":"search_landmarks|revise_brief|finish","decision":"不超过120字的可见决策摘要","brief":{"city":"","cityEn":"","country":"","explicitLandmark":"","landmark":"","landmarkEn":"","subjectType":"city|nature","visualAnchors":["2到4个可见特征"],"composition":"不超过240字的单主体构图指令"}}
 动作规则：首轮标准化地点并选 search_landmarks；看到检索观察后用 revise_brief 修订；简报已有真实单主体、2到4个可见特征且无虚构时选 finish。
 优先级：用户明确主体 > 检索证据 > 高置信城市典型场景。禁止拼接不相邻地标、虚构建筑或添加背景碎片。`,
@@ -215,18 +215,21 @@ export async function POST(request: Request): Promise<Response> {
           cityName, [landmark], "2023-06-01", [],
           { cutPaths: [], scorePaths: [], engravePaths: [], fillPaths: [result.path] },
         );
-        const sceneResult: SceneResult = {
-          city: design.city.slug,
-          landmark,
-          cutPaths: design.cutPaths,
-          scorePaths: design.scorePaths,
-          engravePaths: design.engravePaths,
-          fillPaths: design.fillPaths,
-          paths: design.paths,
-          source: "image-gen",
-          agent: agentResult && { rounds: agentResult.rounds, status: agentResult.status, events: agentResult.events },
-        };
-        return Response.json(sceneResult);
+        // 上线硬门槛：AI 生成结果必须通过制造校验才下发；不合格则降级到参数化兜底。
+        if (validateSceneDesign(design)) {
+          const sceneResult: SceneResult = {
+            city: design.city.slug,
+            landmark,
+            cutPaths: design.cutPaths,
+            scorePaths: design.scorePaths,
+            engravePaths: design.engravePaths,
+            fillPaths: design.fillPaths,
+            paths: design.paths,
+            source: "image-gen",
+            agent: agentResult && { rounds: agentResult.rounds, status: agentResult.status, events: agentResult.events },
+          };
+          return Response.json(sceneResult);
+        }
       }
     }
   }

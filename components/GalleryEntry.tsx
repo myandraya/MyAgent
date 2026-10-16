@@ -52,9 +52,9 @@ export function GalleryEntry({ onBack }: { onBack: () => void }) {
     try {
       const png = await svgToPngBlob(svg, 2);
       downloadFile(png, `shike-${selected.id}-${new Date().toISOString().slice(0, 10)}.png`, "image/png");
-      const cap = t("share_xhs_caption_gallery")
+      const cap = `${t("share_xhs_caption_gallery")
         .replace("{city}", selected.city)
-        .replace("{name}", selected.name);
+        .replace("{name}", selected.name)} ${t("share_madewith")}`;
       setCaption(cap);
       await copyText(cap);
     } catch (e) {
@@ -93,6 +93,7 @@ export function GalleryEntry({ onBack }: { onBack: () => void }) {
                 role="option"
                 aria-selected="false"
               >
+                {item.badge && <span className={`scene-badge ${item.badge}`}>{item.badge === "hot" ? t("badge_hot") : t("badge_new")}</span>}
                 <svg viewBox="0 0 100 100" aria-hidden="true">
                   <path d={item.path} fill="#0a0a0a" fillRule="evenodd" />
                 </svg>

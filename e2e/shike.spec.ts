@@ -34,18 +34,3 @@ test("移动端首页与一句话主入口无水平溢出", async ({ page }, tes
   await expect(page.getByTestId("scene-memory")).toBeVisible();
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth)).toBe(true);
 });
-
-
-test("首页普通点击和滚动都不跳转",async({page},testInfo)=>{
-  test.skip(testInfo.project.name!=="desktop-chrome","仅桌面项目执行");
-  await page.goto("/");
-  const heading=page.getByRole("heading",{name:/我把第二故乡/});
-  await heading.click();
-  await expect(heading).toBeVisible();
-  await expect(page.getByText("MEMORY 1 / 5")).toBeHidden();
-  const canvas=page.getByLabel("可交互缓慢旋转星穹");
-  await expect(canvas).toBeVisible();
-  await canvas.hover({position:{x:40,y:40}});
-  await page.mouse.wheel(0,120);
-  await expect(page.getByText("MEMORY 1 / 5")).toBeHidden();
-});

@@ -181,3 +181,42 @@ export async function extractPhotoSubjectImage(input: {
     return null;
   }
 }
+
+/**
+ * 忠实还原模式：把一张真实景色照片转成黑白剪影，但**保留真实结构**，
+ * 不做"删背景 + 强制补 2~8 个孔洞"的破坏性处理。
+ *
+ * 与 extractPhotoSubjectImage 的区别（这是关键）：
+ *   - 不要求"单一主体、删除整个背景"：实景的山脊、建筑群、河岸、桥孔本身就是主体的一部分。
+ *   - 不强制 2~8 个孔洞：没有孔洞的景物用"雕刻表达"（实体+轮廓），不为镂空补造结构。
+ *   - 强调保留真实比例：塔楼数量、桥孔增减、山形、相对位置都要忠于原图。
+ */
+export async function extractSceneFaithfulImage(input: {
+  base64: string;
+  signal: AbortSignal;
+  timeoutMs?: number;
+}): Promise<GeneratedImage | null> {
+  if (!hasImageGenConfig()) return null;
+  const signal = AbortSignal.any([input.signal, AbortSignal.timeout(input.timeoutMs ?? 45_000)]);
+  const prompt = [
+    "This input image stitches two different views of the same real landscape side by side (separated by a thin white gap).",
+    "Convert the landscape into a single black-and-white silhouette for laser engraving, staying faithful to the actual scene shown across both views.",
+    "Fuse the two views into one coherent silhouette: preserve the real geometry exactly — the ridgeline, mountain shapes, building proportions, the number of towers, the number and position of bridge arches, and the relative positions of all main landmarks.",
+    "Keep the natural skyline and any enclosed openings that already exist in the photos (windows, doors, arches, gaps between structures).",
+    "Do NOT delete the background as if it were clutter — the terrain, skyline and adjacent structures are part of the scene.",
+    "Do NOT invent new holes or structures: if the photos have no enclosed openings, express it as solid engraved mass instead of forcing cutouts.",
+    "Ignore the white divider line between the two views; output one unified silhouette, not two separate silhouettes.",
+    "Render as pure black mass on pure white background: no gray, no gradient, no shading, no text, no border, no detached marks.",
+    "Do not add or remove cars, people, signs, or any elements that change the real scene.",
+  ].join(" ");
+  try {
+    return await requestQwenImage(
+      [{ image: `data:image/png;base64,${input.base64}` }, { text: prompt }],
+      { n: 1, prompt_extend: false, watermark: false },
+      signal,
+    );
+  } catch (error) {
+    console.error("[image-gen] 忠实还原异常:", error);
+    return null;
+  }
+}

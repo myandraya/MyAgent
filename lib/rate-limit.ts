@@ -19,6 +19,15 @@ function prune(now: number): void {
 }
 
 /**
+ * 是否为本地/无代理环境标识：拿不到真实 IP（unknown），或本地回环地址
+ * （::1 / 127.0.0.1 / localhost）。这些情况下所有请求会共用同一个 bucket 互相
+ * 误伤，直接放行，限流只对线上「能识别真实公网 IP」时生效。
+ */
+function isLocalKey(key: string): boolean {
+  return key === "unknown" || key === "::1" || key === "127.0.0.1" || key === "localhost";
+}
+
+/**
  * 检查一个 key 是否在窗口内超限。
  * @param key     限流标识（通常用客户端 IP）
  * @param limit   窗口内最大调用次数
@@ -26,6 +35,7 @@ function prune(now: number): void {
  * @returns true 表示放行，false 表示超限拒绝
  */
 export function allow(key: string, limit: number, windowMs: number): boolean {
+  if (isLocalKey(key)) return true;
   const now = Date.now();
   prune(now);
   const bucket = buckets.get(key);

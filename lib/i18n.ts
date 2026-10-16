@@ -8,10 +8,23 @@ type Dict = Record<string, { zh: string; en: string }>;
 
 export const DICT: Dict = {
   // 通用
-  "brand": { zh: "拾刻", en: "Shike" },
+  "brand": { zh: "城市木刻师", en: "City Woodcarver" },
   "back_home": { zh: "← 返回首页", en: "← Home" },
   "saved": { zh: "已保存 ✓", en: "Saved ✓" },
   "lang_label": { zh: "中文", en: "EN" },
+  // MakerMuse 子应用对齐 · 顶栏
+  "nav_login": { zh: "登录", en: "Log in" },
+  // MakerMuse 子应用对齐 · landing hashtag 胶囊
+  "tag_laser_engrave": { zh: "#激光雕刻", en: "#Laser Engraving" },
+  "tag_laser_cut": { zh: "#激光切割", en: "#Laser Cut" },
+  "tag_svg_export": { zh: "#SVG 导出", en: "#SVG Export" },
+  "tag_city_memory": { zh: "#城市记忆", en: "#City Memory" },
+  "hero_start": { zh: "开始创作", en: "Start" },
+  "hero_cta_gallery": { zh: "逛图库", en: "Browse gallery" },
+  "hero_result_label": { zh: "可雕刻的城市剪影", en: "A carvable city silhouette" },
+  // MakerMuse 对齐 · 场景卡角标
+  "badge_hot": { zh: "热门", en: "Hot" },
+  "badge_new": { zh: "新品", en: "New" },
 
   // 首页 hero
   "hero_eyebrow": { zh: "你的第二故乡", en: "Your second hometown" },
@@ -34,10 +47,20 @@ export const DICT: Dict = {
   "prompt_hint": { zh: "任何城市都可以 · 越具体，剪影越像", en: "Any city works · the more specific, the better the silhouette" },
   "prompt_btn_working": { zh: "正在雕刻你的记忆…", en: "Carving your memory…" },
   "prompt_btn": { zh: "生成剪影", en: "Generate skyline" },
+  "prompt_empty_tip": { zh: "请先输入一句话，比如「我想念巴黎铁塔下的黄昏」", en: "Please enter a line first, e.g. \"I miss the dusk under the Eiffel Tower\"" },
   "prompt_working_status": { zh: "正在把这座城市刻成轮廓…", en: "Carving this city into a skyline…" },
   "prompt_empty_status": { zh: "写下一句你忘不掉的城市，点「生成剪影」，AI 帮你刻出来", en: "Write down a city you can't forget, hit \"Generate\", and AI carves it out" },
   "prompt_source_ai": { zh: "AI 图像生成", en: "AI image gen" },
   "prompt_source_offline": { zh: "离线参数化", en: "Offline parametric" },
+  // 地点定位 + 参考照片（忠实实景还原）
+  "geo_confirm_label": { zh: "确认具体地点", en: "Confirm the location" },
+  "geo_confirm_hint": { zh: "有多个同名地点，请选一个", en: "Multiple places share this name — pick one" },
+  "geo_no_result": { zh: "没找到这个地点，你可以直接上传它的照片", en: "Location not found — you can upload its photo directly" },
+  "geo_no_key": { zh: "定位暂不可用，你可以直接上传照片", en: "Geocoding unavailable — upload a photo instead" },
+  "photo_search_working": { zh: "正在寻找这个地方的真实照片…", en: "Looking for real photos of this place…" },
+  "faithful_label": { zh: "忠实还原", en: "Faithful" },
+  "local_label": { zh: "直接矢量化", en: "Direct vector" },
+  "compare_result": { zh: "剪影", en: "Carved" },
   "layer_cut": { zh: "切穿", en: "Cut" },
   "layer_score": { zh: "划线", en: "Score" },
   "layer_engrave": { zh: "雕刻", en: "Engrave" },
@@ -59,6 +82,25 @@ export const DICT: Dict = {
   "photo_upload_drag": { zh: "松开，让我把它刻出来", en: "Release, let me carve it" },
   "photo_upload_idle": { zh: "选一张舍不得删的照片", en: "Pick a photo you can't delete" },
   "photo_upload_hint": { zh: "PNG / JPEG / WebP · 最大 10MB · 主体清晰、背景干净更出效果", en: "PNG / JPEG / WebP · max 10MB · clearer subject, cleaner background, better result" },
+  // 示例照片（没有照片也想试试的用户）
+  "photo_samples_label": { zh: "没有照片？试试这些", en: "No photo at hand? Try these" },
+  "photo_sample_london": { zh: "伦敦塔桥 · 泰晤士河上的蓝", en: "Tower Bridge · Blue over the Thames" },
+  "photo_sample_beijing": { zh: "北京天坛 · 蓝天下的一层檐", en: "Temple of Heaven · Eaves under blue" },
+  "photo_sample_edinburgh": { zh: "爱丁堡城堡 · 岩石上的旧时光", en: "Edinburgh Castle · Old times on the rock" },
+  "photo_sample_pending_hint": { zh: "照片已就位，点击下方按钮开始雕刻", en: "Photo ready — press the button to carve" },
+  "photo_generate_btn": { zh: "生成剪影", en: "Generate silhouette" },
+  "photo_sample_replace": { zh: "换一张", en: "Pick another" },
+  "photo_compare_original": { zh: "原图", en: "Original" },
+  "photo_compare_carved": { zh: "剪影", en: "Carved" },
+  // MakerMuse 对齐 · 上传 ✓/✗ 示例引导
+  "photo_guide_good_title": { zh: "效果更好", en: "Best results" },
+  "photo_guide_good_1": { zh: "主体清晰、居中", en: "Clear, centered subject" },
+  "photo_guide_good_2": { zh: "背景干净", en: "Clean background" },
+  "photo_guide_good_3": { zh: "单个主体", en: "Single subject" },
+  "photo_guide_bad_title": { zh: "尽量避免", en: "Try to avoid" },
+  "photo_guide_bad_1": { zh: "多人或杂乱背景", en: "Multiple subjects or cluttered background" },
+  "photo_guide_bad_2": { zh: "主体过暗或逆光", en: "Too dark or backlit" },
+  "photo_guide_bad_3": { zh: "被裁掉一半", en: "Subject cut off" },
   "photo_working_status": { zh: "正在提取主体、刻出轮廓…", en: "Isolating subject, carving outline…" },
   "photo_empty_status": { zh: "选一张主体清晰的照片，AI 自动把它刻成镂空剪影", en: "Pick a photo with a clear subject, AI carves it into a hollow silhouette" },
   "photo_summary": { zh: "Potrace 镂空矢量化", en: "Potrace hollow vectorization" },
@@ -94,12 +136,25 @@ export const DICT: Dict = {
   "status_waiting": { zh: "等待生成", en: "Waiting" },
   "status_not_generated": { zh: "尚未生成", en: "Not generated yet" },
 
+  // 分享卡片
+  "download_cta": { zh: "雕刻城市记忆", en: "Carve this memory" },
+  "share_btn": { zh: "分享", en: "Share" },
+  "regenerate_btn": { zh: "重新生成", en: "Regenerate" },
+  "share_dialog_title": { zh: "分享你的作品", en: "Share your work" },
+  "share_card_done": { zh: "创作完成", en: "Created" },
+  "share_card_user": { zh: "城市木刻师", en: "City Woodcarver" },
+  "share_card_tagline": { zh: "城市木刻师 · 一句话，把忘不掉的城刻下来", en: "City Woodcarver · Say a word, carve the city you can't forget" },
+  "share_card_copyright": { zh: "© 2026 城市木刻师", en: "© 2026 City Woodcarver" },
+  "share_to": { zh: "分享至：", en: "Share to:" },
+  "share_download_card": { zh: "下载卡片", en: "Download card" },
+
   // 小红书分享
   "share_xhs": { zh: "分享到小红书", en: "Share to Xiaohongshu" },
   "share_xhs_done": { zh: "已生成分享素材", en: "Share assets ready" },
-  "share_xhs_caption_scene": { zh: "{city} · {landmark}｜一句话，把忘不掉的那座城刻成了剪影 🔭 #拾刻 #AI雕刻 #城市记忆 #第二故乡", en: "{city} · {landmark} | One sentence, and the city I can't forget became a silhouette 🔭 #Shike #AILaser #CityMemory #SecondHome" },
-  "share_xhs_caption_photo": { zh: "舍不得删的照片，现在可以刻下来陪我了 ✨ #拾刻 #照片雕刻 #镂空 #回忆", en: "The photo I couldn't delete is now something I can keep forever ✨ #Shike #PhotoLaser #HollowCut #Memory" },
-  "share_xhs_caption_gallery": { zh: "{city} · {name}｜从图库挑了一座城，刻成了镂空剪影 🔭 #拾刻 #城市剪影 #镂空雕刻 #旅行记忆", en: "{city} · {name} | Picked a city from the gallery and carved it into a hollow silhouette 🔭 #Shike #CitySilhouette #HollowCut #TravelMemory" },
+  "share_xhs_caption_scene": { zh: "{city} · {landmark}｜一句话，把忘不掉的那座城刻成了剪影 🔭 #城市木刻师 #AI雕刻 #城市记忆 #第二故乡", en: "{city} · {landmark} | One sentence, and the city I can't forget became a silhouette 🔭 #CityWoodcarver #AILaser #CityMemory #SecondHome" },
+  "share_xhs_caption_photo": { zh: "舍不得删的照片，现在可以刻下来陪我了 ✨ #城市木刻师 #照片雕刻 #镂空 #回忆", en: "The photo I couldn't delete is now something I can keep forever ✨ #CityWoodcarver #PhotoLaser #HollowCut #Memory" },
+  "share_xhs_caption_gallery": { zh: "{city} · {name}｜从图库挑了一座城，刻成了镂空剪影 🔭 #城市木刻师 #城市剪影 #镂空雕刻 #旅行记忆", en: "{city} · {name} | Picked a city from the gallery and carved it into a hollow silhouette 🔭 #CityWoodcarver #CitySilhouette #HollowCut #TravelMemory" },
+  "share_madewith": { zh: "Made with MakerMuse", en: "Made with MakerMuse" },
   "share_copy": { zh: "复制文案", en: "Copy caption" },
   "share_copied": { zh: "已复制", en: "Copied" },
 };

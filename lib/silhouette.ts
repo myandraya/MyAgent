@@ -1,4 +1,5 @@
 import { resolveCity } from "../data/cities.ts";
+import { getDevice } from "../data/devices.ts";
 import { generateFallbackSilhouette } from "./silhouette-generators.ts";
 import type { City, DfmReport } from "./types.ts";
 
@@ -83,16 +84,133 @@ export function hasOnlyClosedSubpaths(pathData: string): boolean {
   return subpaths.length > 0 && subpaths.every((part) => /^[Mm]/.test(part) && /[Zz]\s*$/.test(part));
 }
 
-export function checkSilhouetteDfm(design: SilhouetteDesign): DfmReport {
+/**
+ * 提取 path 数据中的所有数值，并校验其合法性。
+ * 拒绝 NaN、Infinity、以及超出激光雕刻坐标系的越界坐标（负半径、超大幅面坐标等）。
+ * 这是「输出可雕刻」的第一道硬门槛：几何值本身必须有限且落在合理区间。
+ */
+export function extractPathNumbers(pathData: string): number[] | null {
+  const tokens = pathData.match(/-?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?/g);
+  if (!tokens || tokens.length === 0) return null;
+  const numbers = tokens.map(Number);
+  // 任何非法数字都意味着几何损坏，整体判失败。
+  if (numbers.some((n) => !Number.isFinite(n))) return null;
+  return numbers;
+}
+
+/**
+ * 检查 path 数据里是否残留「非命令、非数字」的异常 token。
+ * 正常 path 只含命令字母（MLHVCSQTAZmlhvcsqtaz）与数字/分隔符；
+ * 一旦出现 NaN / Infinity / undefined / null 等字样，说明上游注入了损坏值。
+ */
+function hasJunkToken(pathData: string): boolean {
+  // 移除所有合法命令字母、数字、小数点、正负号、科学计数、分隔符后，若仍有字母残留即为异常。
+  const residue = pathData
+    .replace(/[MLHVCSQTAZmlhvcsqtaz]/g, "")
+    .replace(/-?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?/g, "")
+    .replace(/[\s,]/g, "");
+  return residue.length > 0;
+}
+
+/** 单个 path 数据是否几何合法（数字有限、无非有限值、坐标不越界、无异常 token）。 */
+export function isFinitePathData(pathData: string): boolean {
+  if (hasJunkToken(pathData)) return false;
+  const numbers = extractPathNumbers(pathData);
+  if (!numbers) return false;
+  // 坐标应落在 0..100 的归一化设计空间（兜底生成器即 0..100）；允许少量负余量用于曲线控制点。
+  const MAX_ABS = 1e4;
+  return numbers.every((n) => Math.abs(n) <= MAX_ABS);
+}
+
+/** 估算 path 的包围盒（0..100 归一化空间），用于最小特征与覆盖校验。 */
+function pathBounds(pathData: string): { minX: number; minY: number; maxX: number; maxY: number } | null {
+  const numbers = extractPathNumbers(pathData);
+  if (!numbers) return null;
+  // path 命令交替出现「命令字母 + 坐标对」，这里简单取所有数值（含控制点）作为包围盒上界。
+  const xs: number[] = [];
+  const ys: number[] = [];
+  // 粗略解析：剔除命令字母后，偶数位为 x，奇数位为 y（近似，对 M/L/H/V/A 的混合序列已足够做阈值判断）。
+  const cleaned = pathData.replace(/[A-Za-z]/g, " ").split(/[\s,]+/).filter(Boolean).map(Number);
+  for (let i = 0; i < cleaned.length; i += 2) {
+    const x = cleaned[i];
+    const y = cleaned[i + 1];
+    if (Number.isFinite(x)) xs.push(x);
+    if (Number.isFinite(y)) ys.push(y);
+  }
+  if (xs.length === 0) return null;
+  return { minX: Math.min(...xs), minY: Math.min(...ys), maxX: Math.max(...xs), maxY: Math.max(...ys) };
+}
+
+export function checkSilhouetteDfm(design: SilhouetteDesign, deviceId = "falcon-10w"): DfmReport {
+  const device = getDevice(deviceId);
   const issues: DfmReport["issues"] = [];
+
+  // 1. 必须存在可制造内容。
   if (!design.paths.length) {
     issues.push({ code: "LINE_WIDTH", severity: "error", message: "没有可制造的地标路径。" });
   }
+
+  // 2. 几何合法性：所有 path 数据必须有限且不越界。
+  if (design.paths.some((path) => !isFinitePathData(path))) {
+    issues.push({ code: "LINE_WIDTH", severity: "error", message: "检测到非法的路径坐标（NaN/Infinity 或越界），输出不可雕刻。" });
+  }
+
+  // 3. 闭合性：切穿/填充/雕刻轮廓必须是闭合环，否则无法可靠切割或填充。
   const closedShapePaths = [...design.cutPaths, ...design.engravePaths, ...design.fillPaths];
   if (closedShapePaths.some((path) => !hasOnlyClosedSubpaths(path))) {
     issues.push({ code: "OPEN_PATH", severity: "error", message: "存在未闭合轮廓，无法可靠执行填充雕刻或切割。" });
   }
-  return { passed: issues.length === 0, issues, checks: 5, summary: issues.length ? "城市剪影不完整" : "5 项剪影 DFM 检查通过" };
+
+  // 4. 切穿层线宽不得超过设备最大切割线宽。
+  if (design.cutPaths.length && design.cutStrokeMm > device.maxCutStrokeMm) {
+    issues.push({ code: "CUT_STROKE", severity: "error", message: `切割线宽 ${design.cutStrokeMm}mm 超过设备 ${device.maxCutStrokeMm}mm。` });
+  }
+
+  // 5. 最小特征尺寸：雕刻/填充层细节不得小于设备可雕刻的最小特征。
+  const featurePaths = [...design.engravePaths, ...design.fillPaths];
+  for (const path of featurePaths) {
+    const bounds = pathBounds(path);
+    if (!bounds) continue;
+    const w = bounds.maxX - bounds.minX;
+    const h = bounds.maxY - bounds.minY;
+    // 归一化 0..100 映射到 180mm 宽：1 单位 ≈ 1.8mm。minFeatureMm 换算回设计空间阈值。
+    const minFeatureUnits = device.minFeatureMm / 1.8;
+    if ((w < minFeatureUnits || h < minFeatureUnits) && (w > 0 || h > 0)) {
+      issues.push({ code: "LINE_WIDTH", severity: "warning", message: "存在小于设备最小特征尺寸的细节，可能雕刻不清晰。" });
+      break; // 只报一次，避免刷屏
+    }
+  }
+
+  // 6. 设备包络：物理尺寸 180×120mm 不得超出设备安全包络。
+  const widthMm = 180;
+  const heightMm = 120;
+  if (device.bedWidthMm === null || device.bedHeightMm === null) {
+    issues.push({ code: "DEVICE_UNKNOWN", severity: "warning", message: `${device.name} 幅面待核验。` });
+  } else if (widthMm > device.bedWidthMm - device.safeMarginMm * 2 || heightMm > device.bedHeightMm - device.safeMarginMm * 2) {
+    issues.push({ code: "ENVELOPE", severity: "error", message: "设计超出设备安全包络。" });
+  }
+
+  const errors = issues.filter((issue) => issue.severity === "error").length;
+  const checks = 6;
+  return {
+    passed: errors === 0,
+    issues,
+    checks,
+    summary: errors ? `发现 ${errors} 项剪影制造问题` : `${checks} 项剪影 DFM 检查通过${issues.length ? "，有非阻断提示" : ""}`,
+  };
+}
+
+/**
+ * 服务端强制 gate：输出下发前必须通过 DFM 硬校验，否则判定不可用。
+ * 返回通过与否；调用方在「不合格」时应降级到参数化兜底而非直接下发。
+ */
+export function validateSceneDesign(design: SilhouetteDesign, deviceId = "falcon-10w"): boolean {
+  if (!design.paths.length) return false;
+  if (design.paths.some((path) => !isFinitePathData(path))) return false;
+  const closedShapePaths = [...design.cutPaths, ...design.engravePaths, ...design.fillPaths];
+  if (closedShapePaths.some((path) => !hasOnlyClosedSubpaths(path))) return false;
+  const report = checkSilhouetteDfm(design, deviceId);
+  return report.passed;
 }
 
 /**
@@ -101,15 +219,16 @@ export function checkSilhouetteDfm(design: SilhouetteDesign): DfmReport {
  * 设计原则：
  *   - Potrace 轮廓按闭合填充区域输出，供雕刻软件的 Fill/Engrave 模式识别
  *   - 参数化结构线按描边输出，供 Line/Score 模式识别
- *   - 切穿轮廓保持独立红色图层
  *   - 物理尺寸 180×120mm
  *
- * 三种工艺语义：
- *   <g id="cut-through" stroke="#ff0000" stroke-width=0.08>  外边框（红色，切穿）
- *   <g id="engraving-fill" fill="#000000">                   闭合轮廓（黑色，填充雕刻）
+ * 三种工艺语义（对齐 MakerMuse 子应用规范：切穿层为黑色，无红色标注）：
+ *   <g id="cut-layer" stroke="#000000">                      主体外轮廓（黑色，切穿，可选）
+ *   <g id="engrave-layer" fill="#000000">                    闭合轮廓（黑色，填充雕刻）
  *   <g id="engraving-line" stroke="#000000">                 结构线（黑色，描线雕刻）
  *
- * 注：原 scorePaths 兼容字段不再单独成层，并入 engraving 保持视觉一致。
+ * 注1：原 scorePaths 兼容字段不再单独成层，并入 engraving 保持视觉一致。
+ * 注2：不再绘制固定的红色外框 rect 与四角对位孔 circle —— 用户要求彻底去掉
+ *      这圈红线，只保留剪影主体（黑色填充 + 结构线）。
  */
 export function generateSilhouetteSvg(design: SilhouetteDesign): string {
   const metadata = JSON.stringify({
@@ -131,16 +250,11 @@ export function generateSilhouetteSvg(design: SilhouetteDesign): string {
 <svg xmlns="http://www.w3.org/2000/svg" width="180mm" height="120mm" viewBox="0 0 180 120" data-units="mm">
   <title>Shike ${design.city.nameEn} line art</title>
   <metadata id="shike-silhouette-design">${metadata}</metadata>
-  <g id="cut-through" fill="none" stroke="#ff0000" stroke-width="${design.cutStrokeMm}" stroke-linecap="round" stroke-linejoin="round">
-    <rect x="0.04" y="0.04" width="179.92" height="119.92" rx="6" fill="none"/>
-    <circle cx="6" cy="6" r="1" fill="none"/>
-    <circle cx="174" cy="6" r="1" fill="none"/>
-    <circle cx="6" cy="114" r="1" fill="none"/>
-    <circle cx="174" cy="114" r="1" fill="none"/>
-    ${cutXml ? `<g transform="${transform}">${cutXml}</g>` : ""}
-  </g>
+  ${cutXml ? `<g id="cut-layer" fill="none" stroke="#000000" stroke-width="${design.cutStrokeMm}" stroke-linecap="round" stroke-linejoin="round">
+    <g transform="${transform}">${cutXml}</g>
+  </g>` : ""}
   <g id="engraving">
-    ${fillXml ? `<g id="engraving-fill" fill="#000000" fill-rule="evenodd" stroke="none">
+    ${fillXml ? `<g id="engrave-layer" fill="#000000" fill-rule="evenodd" stroke="none">
       <g transform="${transform}">${fillXml}</g>
     </g>` : ""}
     <g id="engraving-line" fill="none" stroke="#000000" stroke-width="0.2" stroke-linecap="round" stroke-linejoin="round">

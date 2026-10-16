@@ -4,7 +4,9 @@ import { useState } from "react";
 import { checkHollowPhotoDfm, generateHollowPhotoSvg, type HollowPhotoDesign } from "../lib/photo.ts";
 import { useI18n } from "../lib/i18n.ts";
 import { downloadFile } from "./download.ts";
-import { svgToPngBlob, copyText } from "../lib/share.ts";
+import { ShareDialog, ShareIcon } from "./ShareCard.tsx";
+import { Lightbox } from "./Lightbox.tsx";
+import { ProgressRing } from "./ProgressRing.tsx";
 
 type PhotoApiResponse = {
   cutPath: string;
@@ -18,12 +20,7 @@ type PhotoApiResponse = {
   error?: string;
 };
 
-/**
- * 浏览器端把任意支持格式（PNG/JPEG/WebP）统一转为 PNG blob：
- *   1. createImageBitmap 解码（浏览器原生支持所有常见格式）
- *   2. canvas 缩放（最长边压到 1024，加速服务端 Potrace）
- *   3. canvas.toBlob("image/png") 输出干净 PNG
- */
+/** 浏览器端把任意支持格式（PNG/JPEG/WebP）统一转为 PNG blob，最长边压到 1024。 */
 async function fileToPngBlob(file: File): Promise<Blob> {
   const bitmap = await createImageBitmap(file);
   const scale = Math.min(1, 1024 / Math.max(bitmap.width, bitmap.height));
@@ -41,16 +38,25 @@ async function fileToPngBlob(file: File): Promise<Blob> {
   });
 }
 
+/** 内置示例照片：主体清晰、背景干净，供没有照片的用户一键体验。 */
+const SAMPLES = [
+  { src: "/samples/sample-london.jpg", labelKey: "photo_sample_london" },
+  { src: "/samples/sample-beijing.jpg", labelKey: "photo_sample_beijing" },
+  { src: "/samples/sample-edinburgh.png", labelKey: "photo_sample_edinburgh" },
+] as const;
+
 export function PhotoEntry({ onBack }: { onBack: () => void }) {
   const { t } = useI18n();
   const [design, setDesign] = useState<HollowPhotoDesign | null>(null);
-  const [threshold, setThreshold] = useState<number | null>(null);
-  const [source, setSource] = useState<"qwen" | "local">("local");
   const [error, setError] = useState("");
   const [working, setWorking] = useState(false);
   const [dragOver, setDragOver] = useState(false);
-  const [saved, setSaved] = useState(false);
-  const [phase, setPhase] = useState(0); // 0 待机 / 1 提取主体 / 2 矢量化 / 3 完成
+  const [sharing, setSharing] = useState(false);
+  const [zooming, setZooming] = useState(false);
+  /** 已选但尚未生成的照片（用户上传或示例），先展示预览，等用户点「生成剪影」才真正生成。 */
+  const [pending, setPending] = useState<{ file: File; preview: string } | null>(null);
+  /** 生成后用于「原图 vs 剪影」对比展示的原图预览地址。 */
+  const [sourcePreview, setSourcePreview] = useState<string | null>(null);
 
   const svg = design ? generateHollowPhotoSvg(design) : "";
   const report = design ? checkHollowPhotoDfm(design) : null;
@@ -63,8 +69,6 @@ export function PhotoEntry({ onBack }: { onBack: () => void }) {
       return;
     }
     setWorking(true); setError(""); setDesign(null);
-    setPhase(1);
-    const t2 = setTimeout(() => setPhase(2), 800);
     try {
       const pngBlob = await fileToPngBlob(file);
       const formData = new FormData();
@@ -84,46 +88,110 @@ export function PhotoEntry({ onBack }: { onBack: () => void }) {
         holeCount: typeof result.holeCount === "number" ? result.holeCount : undefined,
         foregroundRatio: typeof result.foregroundRatio === "number" ? result.foregroundRatio : undefined,
       });
-      if (typeof result.threshold === "number") setThreshold(result.threshold);
-      setSource(result.source === "qwen" ? "qwen" : "local");
-      setPhase(3);
     } catch (reason) {
       const code = reason instanceof Error ? reason.message : "";
       setError(errMap[code] ?? t("err_photo_process"));
-    } finally { clearTimeout(t2); setWorking(false); }
+    } finally { setWorking(false); }
   }
 
-  const sizeLabel = design ? `${design.widthMm}×${design.heightMm}mm` : "";
-  const [sharing, setSharing] = useState(false);
-  const [caption, setCaption] = useState("");
-  const [copied, setCopied] = useState(false);
-  const save = () => { downloadFile(svg,`shike-photo-${new Date().toISOString().slice(0,10)}.svg`,"image/svg+xml"); setSaved(true); setTimeout(()=>setSaved(false),1400); };
-  const shareXhs = async () => {
-    if (!svg) return;
-    setSharing(true);
+  /** 用户选择/拖入照片：先转预览进入待确认态，不直接生成。 */
+  function stageFile(file: File | undefined) {
+    if (!file || working) return;
+    if (!/^image\/(png|jpeg|webp)$/.test(file.type) || file.size > 10 * 1024 * 1024) {
+      setError(t("err_photo_size"));
+      return;
+    }
+    setError(""); setDesign(null);
+    setPending({ file, preview: URL.createObjectURL(file) });
+  }
+
+  const save = () => { if (svg) { downloadFile(svg, `shike-photo-${new Date().toISOString().slice(0, 10)}.svg`, "image/svg+xml"); } };
+  const onDrop = (e: React.DragEvent) => { e.preventDefault(); setDragOver(false); stageFile(e.dataTransfer.files?.[0]); };
+
+  /** 点示例缩略图：拉取内置图片转为 File，填入待确认状态。 */
+  async function pickSample(src: string) {
+    if (working) return;
+    setError(""); setDesign(null);
     try {
-      const png = await svgToPngBlob(svg, 2);
-      downloadFile(png, `shike-photo-${new Date().toISOString().slice(0,10)}.png`, "image/png");
-      const cap = t("share_xhs_caption_photo");
-      setCaption(cap);
-      await copyText(cap);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : t("err_png_convert"));
-    } finally { setSharing(false); }
-  };
-  const copyCaption = async () => { if (caption) { await copyText(caption); setCopied(true); setTimeout(()=>setCopied(false),1400); } };
-  const onDrop = (e: React.DragEvent) => { e.preventDefault(); setDragOver(false); if(!working) void processFile(e.dataTransfer.files?.[0]); };
-  const phaseLabel = [t("photo_pipeline_extract"), t("photo_pipeline_vectorize"), t("photo_pipeline_done")];
+      const res = await fetch(src);
+      const blob = await res.blob();
+      const ext = src.endsWith(".png") ? "png" : "jpg";
+      setPending({ file: new File([blob], `sample.${ext}`, { type: blob.type || "image/jpeg" }), preview: src });
+    } catch { setError(t("err_photo_process")); }
+  }
+
+  /** 确认生成：把待生成的照片送入流程，并记住原图预览用于对比。 */
+  function generatePending() {
+    if (!pending || working) return;
+    const file = pending.file;
+    setSourcePreview(pending.preview);
+    setPending(null);
+    void processFile(file);
+  }
 
   return <section className="special-entry">
-    <div className="entry-copy"><h1 dangerouslySetInnerHTML={{__html:t("photo_title")}}/><p className="muted">{t("photo_desc")}</p><button className="secondary" onClick={onBack}>{t("back_home")}</button></div>
+    <div className="entry-copy"><h1 dangerouslySetInnerHTML={{ __html: t("photo_title") }} /><button className="secondary" onClick={onBack}>{t("back_home")}</button></div>
     <div className="question-card glass">
-      <label className={`upload-zone ${dragOver?"drag-active":""}`} onDragOver={(e)=>{e.preventDefault(); setDragOver(true);}} onDragLeave={()=>setDragOver(false)} onDrop={onDrop}><strong>{working ? t("photo_upload_working") : dragOver ? t("photo_upload_drag") : t("photo_upload_idle")}</strong><span>{t("photo_upload_hint")}</span><input data-testid="photo-input" type="file" accept="image/png,image/jpeg,image/webp" disabled={working} onChange={(event)=>void processFile(event.target.files?.[0])}/></label>
-      {error && <p className="status fail" role="alert">{error}</p>}
-      {phase > 0 && <div className="pipeline">{phaseLabel.map((label, i) => { const idx = i + 1; const isDone = idx < phase; const isActive = idx === phase; return <div key={label} className={`pipeline-step${isDone ? " is-done" : isActive ? " is-active" : ""}`}><span className="pipeline-dot"/>{isDone ? <span className="pipeline-check">✓</span> : <span>{label}</span>}{idx < 3 && <span className="pipeline-sep"/>}</div>; })}</div>}
-      {design && <><div className={`special-preview ${working?"is-working":""}`}><object key={svg} data={`data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`} type="image/svg+xml" aria-label="hollow photo preview"/></div><div className="entry-result"><span className={`status ${report?.passed?"":"fail"}`}>{report?.summary}</span><span className="muted">{source === "qwen" ? t("photo_source_qwen") : t("photo_source_local")}{threshold !== null ? ` · ${t("photo_threshold")} ${threshold}` : ""} · {sizeLabel}</span></div>{report && !report.passed && report.issues.length > 0 && <ul className="dfm-issues" role="alert">{report.issues.map((issue, idx) => <li key={idx} className={`dfm-issue dfm-${issue.severity}`}><span className="dfm-code">{issue.code}</span><span className="dfm-severity">{issue.severity === "error" ? t("severity_error") : t("severity_warn")}</span><span className="dfm-message">{issue.message}</span></li>)}</ul>}<div className="btn-row"><button className={`primary ${saved?"is-saved":""}`} disabled={!report?.passed} onClick={save}>{saved?t("saved"):t("photo_download")}</button><button className="secondary" disabled={!report?.passed||sharing} onClick={()=>void shareXhs()}>{sharing?t("share_xhs_done"):t("share_xhs")}</button></div></>}
-      {!design && <div className={`special-preview ${working?"is-working":""}`}><p className="muted" style={{display:"flex",alignItems:"center",justifyContent:"center",height:"100%"}}>{working?t("photo_working_status"):t("photo_empty_status")}</p></div>}
-      {caption && <div className="share-caption"><textarea readOnly value={caption}/><button className="secondary" onClick={()=>void copyCaption()}>{copied?t("share_copied"):t("share_copy")}</button></div>}
+      {!working && !design && !pending && (
+        <>
+          <label className={`upload-zone ${dragOver ? "drag-active" : ""}`} onDragOver={(e) => { e.preventDefault(); setDragOver(true); }} onDragLeave={() => setDragOver(false)} onDrop={onDrop}><strong>{dragOver ? t("photo_upload_drag") : t("photo_upload_idle")}</strong><span>{t("photo_upload_hint")}</span><input data-testid="photo-input" type="file" accept="image/png,image/jpeg,image/webp" disabled={working} onChange={(event) => stageFile(event.target.files?.[0])} /></label>
+          {error && <p className="status fail" role="alert">{error}</p>}
+          <div className="sample-strip" role="group" aria-label={t("photo_samples_label")}>
+            <span className="sample-strip-label">{t("photo_samples_label")}</span>
+            <div className="sample-strip-row">
+              {SAMPLES.map((s) => (
+                <button key={s.src} className="sample-thumb" onClick={() => void pickSample(s.src)} title={t(s.labelKey)}>
+                  <img src={s.src} alt={t(s.labelKey)} loading="lazy" />
+                  <span>{t(s.labelKey).split(" · ")[0]}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        </>
+      )}
+      {!working && !design && pending && (
+        <>
+          <div className="sample-pending">
+            <img src={pending.preview} alt="" />
+            <p className="muted">{t("photo_sample_pending_hint")}</p>
+          </div>
+          {error && <p className="status fail" role="alert">{error}</p>}
+          <div className="btn-row">
+            <button className="primary" onClick={generatePending}>{t("photo_generate_btn")}</button>
+            <button className="secondary" onClick={() => setPending(null)}>{t("photo_sample_replace")}</button>
+          </div>
+        </>
+      )}
+      {working && (
+        <div className="waiting">
+          <ProgressRing label={t("photo_upload_working")} />
+          <p className="muted">{t("photo_upload_working")}</p>
+        </div>
+      )}
+      {!working && design && (
+        <>
+          <div className="compare-grid">
+            {sourcePreview && (
+              <figure className="compare-item">
+                <img src={sourcePreview} alt={t("photo_compare_original")} />
+                <figcaption>{t("photo_compare_original")}</figcaption>
+              </figure>
+            )}
+            <figure className="compare-item">
+              <img key={svg} className="zoom-target" src={`data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`} alt={t("photo_compare_carved")} onClick={() => setZooming(true)} />
+              <figcaption>{t("photo_compare_carved")}</figcaption>
+            </figure>
+          </div>
+          {error && <p className="status fail" role="alert">{error}</p>}
+          <div className="btn-row">
+            <button className="primary" disabled={!report?.passed} onClick={save}>{t("download_cta")}</button>
+            <button className="secondary" onClick={() => setSharing(true)}><ShareIcon /> {t("share_btn")}</button>
+          </div>
+          <button className="regenerate-link" onClick={() => { setDesign(null); setError(""); setSourcePreview(null); }}>{t("regenerate_btn")}</button>
+        </>
+      )}
     </div>
+    {sharing && design && <ShareDialog info={{ title: "把这一刻，雕进木头里", svg }} onClose={() => setSharing(false)} />}
+    {zooming && svg && <Lightbox svg={svg} onClose={() => setZooming(false)} />}
   </section>;
 }

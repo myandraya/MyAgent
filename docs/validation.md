@@ -25,7 +25,7 @@ Playwright 通过本机已安装的 Google Chrome (`channel: chrome`) 运行，�
 | `npm run typecheck -- --pretty false` | 通过，退出码 0 | `tsc --noEmit` 无诊断 |
 | `npm run lint` | 通过，退出码 0 | `eslint .` 无诊断 |
 | `npm run build` | 通过，退出码 0 | Next.js 16.3.5 编译成功，6/6 页面生成；含 `/`、`/api/events`、`/api/repair`、`/api/scene` |
-| 生产首页烟测 | 通过，退出码 0 | HTTP 200，HTML 含“拾刻” |
+| 生产首页烟测 | 通过，退出码 0 | HTTP 200，HTML 含“城市木刻师” |
 | 生产 ReAct/RAG SSE 烟测 | 通过，真实DeepSeek | HTTP 200；3665ms；rounds=5；modelCalls=2；deadline=15000；含craft/content/done |
 | 生产 Reflection 烟测 | 通过，退出码 0 | `dfm.passed=true`；repairRounds=1；含 `repair_svg` 与 `run_dfm_check` 复检 |
 | 生产场景 API 回归 | 通过，退出码 0 | HTTP 200，城市 `sydney` |

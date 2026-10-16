@@ -8,6 +8,19 @@ type Ctx = { fill: string; stroke: string; strokeWidth: number; fillRule: "eveno
 
 const DEF: Ctx = { fill: "black", stroke: "none", strokeWidth: 0, fillRule: "nonzero", opacity: 1 };
 
+/** 渐变定义（按 id 索引），用于解析 fill="url(#id)"。 */
+type Gradient = { stops: [number, string][] };
+
+/** 把 fill/stroke 里的 url(#id) 渐变引用解析成纯色（取最接近中点的 stop）。 */
+function resolvePaint(paint: string, gradients: Record<string, Gradient>): string {
+  const m = paint.match(/^url\(["']?#([^)"']+)["']?\)$/);
+  if (!m) return paint;
+  const g = gradients[m[1]];
+  if (!g || !g.stops.length) return "black";
+  const mid = g.stops.reduce((a, b) => (Math.abs(b[0] - 0.5) < Math.abs(a[0] - 0.5) ? b : a));
+  return mid[1];
+}
+
 /** 解析 transform 字符串，应用到 canvas context（支持 translate/scale/matrix/rotate） */
 function applyTransform(ctx: CanvasRenderingContext2D, tf: string) {
   const re = /(translate|scale|rotate|matrix)\(([^)]+)\)/g;
@@ -37,42 +50,85 @@ function inherit(el: Element, parent: Ctx): Ctx {
   return c;
 }
 
+/** 构建 canvas font 字符串（剔除 -apple-system 等画布不识别的族名）。 */
+function canvasFont(el: Element, sizeFallback = 16): string {
+  const size = parseFloat(el.getAttribute("font-size") || "") || sizeFallback;
+  const weight = el.getAttribute("font-weight") || "400";
+  return `${weight} ${size}px "Helvetica Neue", "PingFang SC", Arial, sans-serif`;
+}
+
+/** 渲染 <text>（含 <tspan> 子元素），支持 text-anchor 与逐段样式。 */
+function renderText(ctx: CanvasRenderingContext2D, el: Element, style: Ctx, gradients: Record<string, Gradient>) {
+  const x = parseFloat(el.getAttribute("x") || "") || 0;
+  const y = parseFloat(el.getAttribute("y") || "") || 0;
+  const anchor = el.getAttribute("text-anchor") || "start";
+  const runs: { text: string; font: string; fill: string }[] = [];
+  const tspans = Array.from(el.children).filter((c) => c.tagName === "tspan");
+  if (tspans.length) {
+    for (const ts of tspans) {
+      const text = ts.textContent || "";
+      if (!text) continue;
+      runs.push({ text, font: canvasFont(ts, parseFloat(el.getAttribute("font-size") || "") || 16), fill: resolvePaint(ts.getAttribute("fill") || style.fill, gradients) });
+    }
+  } else {
+    const text = el.textContent || "";
+    if (!text) return;
+    runs.push({ text, font: canvasFont(el), fill: resolvePaint(style.fill, gradients) });
+  }
+  const totalWidth = runs.reduce((w, r) => w + ctx.measureText(r.text).width, 0);
+  // 先用第一段的 font 统一测量宽度（同一 text 内字号通常一致，误差可忽略）
+  let cursor = anchor === "middle" ? x - totalWidth / 2 : anchor === "end" ? x - totalWidth : x;
+  ctx.textBaseline = "alphabetic";
+  for (const r of runs) {
+    ctx.font = r.font;
+    ctx.fillStyle = r.fill;
+    ctx.fillText(r.text, cursor, y);
+    cursor += ctx.measureText(r.text).width;
+  }
+}
+
 /** 递归渲染一个元素到 canvas */
-function renderEl(ctx: CanvasRenderingContext2D, el: Element, style: Ctx) {
+function renderEl(ctx: CanvasRenderingContext2D, el: Element, style: Ctx, gradients: Record<string, Gradient>) {
   const st = inherit(el, style);
   ctx.save();
   const tf = el.getAttribute("transform"); if (tf) applyTransform(ctx, tf);
   ctx.globalAlpha *= st.opacity;
   const tag = el.tagName;
-  if (tag === "g") { for (const c of Array.from(el.children)) renderEl(ctx, c, st); }
+  if (tag === "g") { for (const c of Array.from(el.children)) renderEl(ctx, c, st, gradients); }
+  else if (tag === "text") { renderText(ctx, el, st, gradients); }
   else if (tag === "path") {
     const d = el.getAttribute("d"); if (!d) { ctx.restore(); return; }
     const p = new Path2D(d);
-    if (st.fill !== "none") { ctx.fillStyle = st.fill; ctx.fill(p, st.fillRule); }
-    if (st.stroke !== "none") { ctx.strokeStyle = st.stroke; ctx.lineWidth = st.strokeWidth; ctx.stroke(p); }
+    const fill = resolvePaint(st.fill, gradients), stroke = resolvePaint(st.stroke, gradients);
+    if (fill !== "none") { ctx.fillStyle = fill; ctx.fill(p, st.fillRule); }
+    if (stroke !== "none") { ctx.strokeStyle = stroke; ctx.lineWidth = st.strokeWidth; ctx.stroke(p); }
   } else if (tag === "rect") {
     const x = +(el.getAttribute("x") || 0), y = +(el.getAttribute("y") || 0);
     const w = +(el.getAttribute("width") || 0), h = +(el.getAttribute("height") || 0);
     const rx = +(el.getAttribute("rx") || 0);
     const p = new Path2D(); if (rx) p.roundRect(x, y, w, h, rx); else p.rect(x, y, w, h);
-    if (st.fill !== "none") { ctx.fillStyle = st.fill; ctx.fill(p, st.fillRule); }
-    if (st.stroke !== "none") { ctx.strokeStyle = st.stroke; ctx.lineWidth = st.strokeWidth; ctx.stroke(p); }
+    const fill = resolvePaint(st.fill, gradients), stroke = resolvePaint(st.stroke, gradients);
+    if (fill !== "none") { ctx.fillStyle = fill; ctx.fill(p, st.fillRule); }
+    if (stroke !== "none") { ctx.strokeStyle = stroke; ctx.lineWidth = st.strokeWidth; ctx.stroke(p); }
   } else if (tag === "circle") {
     const cx = +(el.getAttribute("cx") || 0), cy = +(el.getAttribute("cy") || 0), r = +(el.getAttribute("r") || 0);
     const p = new Path2D(); p.arc(cx, cy, r, 0, Math.PI * 2);
-    if (st.fill !== "none") { ctx.fillStyle = st.fill; ctx.fill(p, st.fillRule); }
-    if (st.stroke !== "none") { ctx.strokeStyle = st.stroke; ctx.lineWidth = st.strokeWidth; ctx.stroke(p); }
+    const fill = resolvePaint(st.fill, gradients), stroke = resolvePaint(st.stroke, gradients);
+    if (fill !== "none") { ctx.fillStyle = fill; ctx.fill(p, st.fillRule); }
+    if (stroke !== "none") { ctx.strokeStyle = stroke; ctx.lineWidth = st.strokeWidth; ctx.stroke(p); }
   } else if (tag === "line") {
     const x1 = +(el.getAttribute("x1") || 0), y1 = +(el.getAttribute("y1") || 0);
     const x2 = +(el.getAttribute("x2") || 0), y2 = +(el.getAttribute("y2") || 0);
     const p = new Path2D(); p.moveTo(x1, y1); p.lineTo(x2, y2);
-    if (st.stroke !== "none") { ctx.strokeStyle = st.stroke; ctx.lineWidth = st.strokeWidth; ctx.stroke(p); }
+    const stroke = resolvePaint(st.stroke, gradients);
+    if (stroke !== "none") { ctx.strokeStyle = stroke; ctx.lineWidth = st.strokeWidth; ctx.stroke(p); }
   } else if (tag === "polygon" || tag === "polyline") {
     const a = pts(el.getAttribute("points") || ""); const p = new Path2D();
     for (let i = 0; i + 1 < a.length; i += 2) { if (i === 0) p.moveTo(a[i], a[i + 1]); else p.lineTo(a[i], a[i + 1]); }
     if (tag === "polygon") p.closePath();
-    if (st.fill !== "none" && tag === "polygon") { ctx.fillStyle = st.fill; ctx.fill(p, st.fillRule); }
-    if (st.stroke !== "none") { ctx.strokeStyle = st.stroke; ctx.lineWidth = st.strokeWidth; ctx.stroke(p); }
+    const fill = resolvePaint(st.fill, gradients), stroke = resolvePaint(st.stroke, gradients);
+    if (fill !== "none" && tag === "polygon") { ctx.fillStyle = fill; ctx.fill(p, st.fillRule); }
+    if (stroke !== "none") { ctx.strokeStyle = stroke; ctx.lineWidth = st.strokeWidth; ctx.stroke(p); }
   }
   ctx.restore();
 }
@@ -105,9 +161,19 @@ export function svgToPngBlob(svg: string, scale = 2): Promise<Blob> {
     // viewBox 坐标系映射到 canvas
     ctx.scale(canvas.width / vb[2], canvas.height / vb[3]);
     ctx.translate(-vb[0], -vb[1]);
+    // 解析 <linearGradient>/<radialGradient> 定义（fill="url(#id)" 引用）
+    const gradients: Record<string, Gradient> = {};
+    root.querySelectorAll("linearGradient, radialGradient").forEach((g) => {
+      const stops = Array.from(g.querySelectorAll("stop")).map((s) => {
+        const off = parseFloat(s.getAttribute("offset") || "0") / (s.getAttribute("offset")?.includes("%") ? 100 : 1);
+        return [Number.isFinite(off) ? off : 0, s.getAttribute("stop-color") || "#000"] as [number, string];
+      });
+      const id = g.getAttribute("id");
+      if (id) gradients[id] = { stops };
+    });
     // 递归重画所有子元素（根 svg 本身的样式作为顶层继承）
     const top = inherit(root, DEF);
-    for (const c of Array.from(root.children)) renderEl(ctx, c, top);
+    for (const c of Array.from(root.children)) renderEl(ctx, c, top, gradients);
     canvas.toBlob((b) => (b ? resolve(b) : reject(new Error("ERR_PNG_CONVERT"))), "image/png");
   });
 }
