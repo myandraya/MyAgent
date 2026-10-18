@@ -218,13 +218,69 @@ h1 { margin: 0; font-size: clamp(44px, 7vw, 84px); line-height: 1.12; font-weigh
 .hero-landing h1 { text-align: left; }
 .hero-desc { margin: 0 !important; max-width: 520px; }
 .hero-entries { display: grid; gap: 14px; max-width: 460px; }
-.hero-visual { position: relative; display: flex; align-items: center; justify-content: center; min-height: 440px; }
+.hero-visual { position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 22px; min-height: 440px; }
+
+/* ---------- 右侧作品预览面板（第一屏直出完整成品） ---------- */
+.showcase {
+  width: min(340px, 100%);
+  display: flex; flex-direction: column; gap: 14px;
+}
+.showcase-stage {
+  position: relative; margin: 0;
+  display: flex; flex-direction: column; align-items: center; gap: 12px;
+  padding: 24px 20px 18px;
+  border-radius: 28px;
+  background: #ffffff;
+  border: 1px solid rgba(255, 255, 255, .14);
+  box-shadow: 0 18px 48px rgba(0, 0, 0, .42);
+}
+.showcase-art {
+  width: 220px; height: 300px;
+  object-fit: contain;
+  filter: drop-shadow(0 6px 18px rgba(0, 0, 0, .22));
+  animation: showcase-in .7s var(--ease-out) both;
+}
+@keyframes showcase-in {
+  from { opacity: 0; transform: translateY(10px) scale(.98); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+.showcase-caption {
+  display: flex; flex-direction: column; align-items: center; gap: 3px;
+}
+.showcase-name { color: #17191f; font-size: 15px; font-weight: 620; letter-spacing: .02em; }
+.showcase-city { color: #6b7280; font-size: 12px; letter-spacing: .14em; text-transform: uppercase; }
+.showcase-note { color: #8a8f9a; font-size: 11px; margin-top: 4px; }
+.showcase-cases {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;
+}
+.showcase-case {
+  display: flex; flex-direction: column; align-items: center; gap: 6px;
+  padding: 10px 6px 8px;
+  border-radius: 16px;
+  background: #ffffff;
+  border: 1px solid rgba(255, 255, 255, .12);
+  cursor: pointer;
+  transition: transform var(--t-press) var(--ease-spring), border-color var(--t-hover) ease, box-shadow var(--t-hover) ease;
+}
+.showcase-case img { width: 44px; height: 66px; object-fit: contain; opacity: .85; transition: opacity var(--t-hover) ease; }
+.showcase-case span { color: #5b6170; font-size: 11px; font-weight: 550; }
+.showcase-case:hover { transform: translateY(-2px); border-color: rgba(10, 132, 255, .5); }
+.showcase-case:hover img { opacity: 1; }
+.showcase-case.on {
+  background: #ffffff;
+  border-color: #0a84ff;
+  box-shadow: 0 0 0 3px rgba(10, 132, 255, .18);
+}
+.showcase-case.on img { opacity: 1; }
+.showcase-case.on span { color: #17191f; }
+
 @media (max-width: 800px) {
   .hero-landing { grid-template-columns: 1fr; gap: 32px; text-align: center; }
   .hero-landing h1 { text-align: center; }
   .hero-desc { margin: 0 auto !important; }
   .hero-entries { width: min(420px, 100%); margin: 0 auto; }
   .hero-visual { min-height: 360px; }
+  .showcase { width: min(320px, 100%); margin: 0 auto; }
 }
 
 /* ---------- 表单卡片 ---------- */
@@ -280,24 +336,15 @@ h1 { margin: 0; font-size: clamp(44px, 7vw, 84px); line-height: 1.12; font-weigh
   stroke-width: 8;
   stroke-linecap: round;
   filter: drop-shadow(0 0 8px rgba(10, 132, 255, .5));
-  transition: stroke-dashoffset .2s linear;
   animation: progress-ring-pulse 1.8s ease-in-out infinite;
 }
-.progress-ring-value {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 20px;
-  font-weight: 600;
-  letter-spacing: .02em;
-  color: #fff;
-  font-variant-numeric: tabular-nums;
-  animation: progress-ring-glow 1.8s ease-in-out infinite;
+/* 不确定进度：短弧持续旋转，传达「正在处理」而非伪造百分比完成度 */
+.progress-ring-indeterminate {
+  animation: progress-ring-spin 1.1s linear infinite, progress-ring-pulse 1.8s ease-in-out infinite;
+  transform-origin: center;
 }
 
-/* 进度环闪动：进度条发光呼吸 + 圆环整体轻微缩放 */
+/* 进度环闪动：进度条发光呼吸 */
 @keyframes progress-ring-pulse {
   0%, 100% {
     opacity: 1;
@@ -309,10 +356,10 @@ h1 { margin: 0; font-size: clamp(44px, 7vw, 84px); line-height: 1.12; font-weigh
   }
 }
 
-/* 百分比数字同步呼吸 */
-@keyframes progress-ring-glow {
-  0%, 100% { opacity: 1; text-shadow: 0 0 10px rgba(10, 132, 255, .35); }
-  50% { opacity: .7; text-shadow: 0 0 18px rgba(10, 132, 255, .7); }
+/* 不确定进度的旋转 */
+@keyframes progress-ring-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
 }
 
 /* ---------- 示例照片条 · 一键体验入口 ---------- */
@@ -479,7 +526,7 @@ h1 { margin: 0; font-size: clamp(44px, 7vw, 84px); line-height: 1.12; font-weigh
 .muted { color: var(--muted); }
 
 /* ---------- 照片 / 剪影入口 ---------- */
-.special-entry { flex: 1; display: grid; grid-template-columns: minmax(0, .7fr) minmax(0, 1.3fr); align-items: center; justify-content: center; gap: clamp(32px, 6vw, 72px); max-width: 1200px; margin: 0 auto; padding: clamp(48px, 8vh, 96px) 0; width: 100%; }
+.special-entry { flex: 1; display: grid; grid-template-columns: minmax(0, .7fr) minmax(0, 1.3fr); align-items: center; justify-content: center; gap: clamp(24px, 4vw, 56px); max-width: 1200px; margin: 0 auto; padding: clamp(28px, 5vh, 64px) 0; width: 100%; }
 /* 卡片入场：左栏文案与右侧玻璃卡从下方上浮 + 轻微过冲回弹 */
 .special-entry .entry-copy { animation: card-rise .6s var(--ease-spring) both; }
 .special-entry .question-card { animation: card-rise .6s var(--ease-spring) .08s both; }
@@ -495,8 +542,8 @@ h1 { margin: 0; font-size: clamp(44px, 7vw, 84px); line-height: 1.12; font-weigh
 .question-card > *:nth-child(7) { animation-delay: .52s; }
 .question-card > *:nth-child(8) { animation-delay: .58s; }
 .entry-copy h1 { font-family: var(--font-display); font-size: clamp(30px, 4.5vw, 48px); font-weight: 600; letter-spacing: -.01em; line-height: 1.15; }
-.entry-copy p { line-height: 1.75; max-width: 430px; margin: 24px 0; }
-.entry-copy .secondary { margin-top: 28px; }
+.entry-copy p { line-height: 1.75; max-width: 430px; margin: 16px 0 0; }
+.entry-copy .secondary { margin-top: 24px; }
 .upload-zone {
   min-height: 170px; display: grid; place-content: center; text-align: center; gap: 8px;
   border: 1.5px dashed rgba(127, 168, 255, .45); border-radius: 18px;
@@ -717,6 +764,71 @@ h1 { margin: 0; font-size: clamp(44px, 7vw, 84px); line-height: 1.12; font-weigh
 .candidate-meta { font-size: 12px; color: var(--muted); line-height: 1.5; }
 .candidate-skip { align-self: center; margin-top: 8px; }
 
+/* ---------- 输入页常驻说明 + 可点击示例 ---------- */
+.prompt-howto { margin: 14px 0 6px; font-size: 14px; color: var(--blue-soft); }
+.prompt-limit-note { margin: 0; font-size: 12px; color: var(--muted); line-height: 1.6; }
+.prompt-examples {
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 8px;
+  margin-top: 16px;
+}
+.prompt-examples-label { font-size: 12px; color: var(--muted); letter-spacing: .04em; }
+.prompt-example {
+  padding: 7px 14px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, .06);
+  border: 1px solid rgba(255, 255, 255, .12);
+  color: #cfe1ff;
+  font-size: 13px;
+  cursor: pointer;
+  transition: transform var(--t-press) var(--ease-spring), color var(--t-hover) ease, border-color var(--t-hover) ease, background var(--t-hover) ease;
+}
+.prompt-example:hover {
+  color: #fff;
+  border-color: rgba(10, 132, 255, .5);
+  background: rgba(10, 132, 255, .12);
+  transform: translateY(-1px);
+}
+.prompt-example:active { transform: translateY(0) scale(.97); }
+
+/* ---------- 候选类型 / 城市 / 国家标签 ---------- */
+.candidate-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.candidate-type {
+  font-size: 11px; padding: 2px 8px; border-radius: 999px;
+  background: rgba(10, 132, 255, .16); color: #cfe1ff; border: 1px solid rgba(10, 132, 255, .35);
+}
+.candidate-city, .candidate-country, .candidate-admin { font-size: 12px; color: var(--muted); }
+.candidate-hint-text { font-size: 12px; color: var(--muted); }
+
+/* ---------- 确认建筑全程可见回显 ---------- */
+.selected-building {
+  margin: 0;
+  font-size: 14px;
+  color: #fff;
+  font-weight: 590;
+  letter-spacing: .01em;
+}
+.selected-building.done { margin-bottom: 4px; }
+
+/* ---------- 等待阶段：取消 + 耗时说明 ---------- */
+.working-timeout-hint { font-size: 12px; color: var(--muted); margin-top: -8px; letter-spacing: .02em; }
+.working-cancel { margin-top: 4px; }
+
+/* ---------- 失败分类 + 降级抉择 ---------- */
+.status.fail { display: flex; flex-direction: column; align-items: center; gap: 12px; }
+.error-retry { margin-top: 2px; }
+.fallback-choice {
+  margin-top: 18px;
+  padding: 18px 20px;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, .05);
+  border: 1px solid rgba(255, 255, 255, .12);
+  text-align: center;
+}
+.fallback-choice-title { font-size: 15px; color: #fff; font-weight: 590; margin-bottom: 6px; }
+.fallback-choice-hint { font-size: 13px; color: var(--muted); line-height: 1.6; margin-bottom: 14px; }
+.fallback-choice-actions { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+
+
 /* ---------- 参考图来源标注 ---------- */
 .attribution { margin: 14px auto 0; font-size: 12px; color: var(--muted); line-height: 1.6; max-width: 620px; }
 .attribution a { color: var(--blue-soft); text-decoration: none; border-bottom: 1px solid rgba(127, 168, 255, .4); }
@@ -740,174 +852,69 @@ h1 { margin: 0; font-size: clamp(44px, 7vw, 84px); line-height: 1.12; font-weigh
 .segment.on { background: var(--blue-tint); color: #fff; box-shadow: 0 0 0 3px rgba(10, 132, 255, .12); }
 .segment:disabled { opacity: .5; cursor: default; }
 
-/* ==========================================================================
-   FlowDemo · 首页右侧「输入文字 → 生成 SVG」流程演示动画
-   Apple 官网式：柔缓 ease-out 长尾、逐字错峰淡入、克制不跳变
-   分四个阶段自循环，全部只动 transform/opacity，尊重 prefers-reduced-motion
-   ========================================================================== */
-.flow-demo {
-  position: relative;
-  width: min(420px, 100%);
-  height: 440px;
-  display: grid;
-  grid-template-rows: auto auto 1fr auto;
-  gap: 18px;
-  align-items: center;
-  padding: 26px;
-  border-radius: 28px;
-  background: linear-gradient(180deg, rgba(255, 255, 255, .07), rgba(255, 255, 255, .03));
-  border: 1px solid rgba(255, 255, 255, .12);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .08), var(--shadow-2);
-  backdrop-filter: blur(20px) saturate(1.3);
-  -webkit-backdrop-filter: blur(20px) saturate(1.3);
+/* ---------- 结果页版本控制：尺寸 + 撤销/恢复/对比 ---------- */
+.result-meta {
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap; justify-content: center;
+  margin-top: 16px;
 }
+.result-size {
+  padding: 6px 14px; border-radius: 999px;
+  font-size: 12px; font-weight: 590; letter-spacing: .02em;
+  background: rgba(255, 255, 255, .06); border: 1px solid rgba(255, 255, 255, .14); color: #cfe1ff;
+}
+.result-meta-spacer { flex: 1 1 8px; }
+.link-btn {
+  border: 0; background: none; cursor: pointer;
+  color: var(--muted); font-size: 13px; font-weight: 450;
+  padding: 6px 8px;
+  transition: color var(--t-hover) ease;
+}
+.link-btn:hover { color: #cfe1ff; text-decoration: underline; text-underline-offset: 3px; }
+.link-btn:focus-visible { outline: 2px solid #0a84ff; outline-offset: 2px; border-radius: 6px; }
 
-/* —— 步骤 1：输入框 + 文字逐字错峰淡入 —— */
-.flow-input {
-  display: flex;
-  align-items: center;
-  height: 52px;
-  padding: 0 16px;
-  border-radius: 16px;
-  background: rgba(5, 6, 13, .55);
-  border: 1px solid rgba(255, 255, 255, .14);
-  font-size: 17px;
-  color: #fff;
-  overflow: hidden;
-}
-/* 文字整体：一个 6.8s 循环里「淡入 → 停留 → 淡出」，节奏与建筑/代码对齐 */
-.flow-input-text {
-  display: inline-flex;
-  white-space: nowrap;
-  letter-spacing: .04em;
-  animation: flow-text-cycle 6.8s var(--ease-out) infinite;
-}
-/* 每个字独立错峰淡入（避免 steps 宽度跳变裁字；"塔"字不再被切） */
-.flow-char {
-  display: inline-block;
-  opacity: 0;
-  transform: translateY(6px);
-  animation: flow-char-in .5s var(--ease-out) forwards;
-}
-.flow-caret {
-  display: inline-block;
-  width: 2px;
-  height: 1.1em;
-  margin-left: 6px;
-  background: var(--blue-soft);
-  animation: flow-blink 1.1s steps(2, start) infinite;
-}
+/* 底部英文文字限制提示 */
+.name-limit-hint { margin: 8px 0 0 66px; font-size: 12px; color: var(--muted); line-height: 1.5; text-align: left; }
+@media (max-width: 480px) { .name-limit-hint { margin-left: 0; } }
 
-/* —— 步骤 2：AI 处理态 —— */
-.flow-processing {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  height: 22px;
-  animation: flow-processing-cycle 6.8s var(--ease-out) infinite;
+/* ---------- 制造检查结果 ---------- */
+.dfm-status {
+  margin-top: 20px; padding: 14px 16px; border-radius: 12px;
+  border: 1px solid; text-align: left;
 }
-.flow-dot {
-  width: 7px; height: 7px; border-radius: 50%;
-  background: var(--blue-soft);
-  animation: flow-bounce 1.3s ease-in-out infinite;
+.dfm-status.pass { background: rgba(48, 209, 88, .08); border-color: rgba(48, 209, 88, .35); }
+.dfm-status.fail { background: rgba(255, 69, 58, .08); border-color: rgba(255, 69, 58, .35); }
+.dfm-status-head { display: flex; align-items: flex-start; gap: 12px; }
+.dfm-badge {
+  flex: 0 0 auto; width: 24px; height: 24px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 14px; font-weight: 500;
 }
-.flow-dot:nth-child(2) { animation-delay: .15s; }
-.flow-dot:nth-child(3) { animation-delay: .3s; }
-.flow-processing-label {
-  margin-left: 8px;
-  font-size: 12px;
-  color: var(--muted);
-  letter-spacing: .03em;
-}
+.dfm-badge.pass { background: var(--green); color: #043c1d; }
+.dfm-badge.fail { background: var(--red); color: #fff; }
+.dfm-status-title { display: flex; flex-direction: column; gap: 2px; }
+.dfm-status-title strong { font-size: 14px; font-weight: 500; }
+.dfm-status.pass .dfm-status-title strong { color: var(--green); }
+.dfm-status.fail .dfm-status-title strong { color: var(--red); }
+.dfm-status-title span { font-size: 12px; color: var(--muted); line-height: 1.5; }
+.dfm-issues { margin: 10px 0 0 0; padding-left: 18px; }
+.dfm-issue { font-size: 13px; color: #ffd9d7; line-height: 1.6; margin-bottom: 4px; }
+.dfm-issue.warn { color: #ffe8a3; }
+.dfm-fix-hint { margin: 10px 0 0 0; font-size: 12px; color: var(--muted); line-height: 1.5; }
 
-/* —— 步骤 3：建筑剪影 —— */
-.flow-building {
-  width: 170px;
-  height: 190px;
-  object-fit: contain;
-  justify-self: center;
-  animation: flow-building-cycle 6.8s var(--ease-out) infinite;
-  filter: drop-shadow(0 8px 24px rgba(10, 132, 255, .28));
+/* ---------- 制作说明（下载前须知） ---------- */
+.make-guide { margin-top: 12px; border: 1px solid var(--glass-border); border-radius: 12px; background: rgba(255, 255, 255, .03); }
+.make-guide summary {
+  cursor: pointer; padding: 12px 16px; font-size: 13px; font-weight: 500; color: #cfe1ff;
+  list-style: none; user-select: none;
 }
-
-/* —— 步骤 4：SVG 代码标签 —— */
-.flow-code {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  height: 40px;
-  padding: 0 14px;
-  border-radius: 12px;
-  background: rgba(10, 132, 255, .12);
-  border: 1px solid rgba(10, 132, 255, .28);
-  font-size: 12px;
-  color: var(--blue-soft);
-  animation: flow-code-cycle 6.8s var(--ease-out) infinite;
-}
-.flow-code-dot {
-  width: 8px; height: 8px; border-radius: 50%;
-  background: var(--green);
-  box-shadow: 0 0 8px rgba(48, 209, 88, .6);
-}
-.flow-code code { font-family: "SF Mono", ui-monospace, Menlo, monospace; font-size: 12px; letter-spacing: .02em; }
-
-/* —— keyframes ——
-   统一 6.8s 周期，各阶段用百分比切出「出现 → 停留 → 淡出」的时间窗，
-   形成一段完整自循环：文字(0–38%) → 处理(30–50%) → 建筑(42–70%) → 代码(58–88%) → 收尾淡出。
-   缓动用 ease-out 长尾，贴合 Apple 官网的从容节奏。 */
-@keyframes flow-char-in {
-  from { opacity: 0; transform: translateY(6px); }
-  to   { opacity: 1; transform: translateY(0); }
-}
-@keyframes flow-text-cycle {
-  0%   { opacity: 0; }
-  8%   { opacity: 1; }
-  38%  { opacity: 1; }
-  46%  { opacity: 0; }
-  100% { opacity: 0; }
-}
-@keyframes flow-processing-cycle {
-  0%   { opacity: 0; }
-  30%  { opacity: 0; }
-  38%  { opacity: 1; }
-  52%  { opacity: 1; }
-  60%  { opacity: 0; }
-  100% { opacity: 0; }
-}
-@keyframes flow-building-cycle {
-  0%   { opacity: 0; transform: translateY(28px); }
-  42%  { opacity: 0; transform: translateY(28px); }
-  52%  { opacity: 1; transform: translateY(0); }
-  72%  { opacity: 1; transform: translateY(0); }
-  82%  { opacity: 0; transform: translateY(0); }
-  100% { opacity: 0; transform: translateY(0); }
-}
-@keyframes flow-code-cycle {
-  0%   { opacity: 0; transform: translateY(12px); }
-  58%  { opacity: 0; transform: translateY(12px); }
-  66%  { opacity: 1; transform: translateY(0); }
-  86%  { opacity: 1; transform: translateY(0); }
-  94%  { opacity: 0; transform: translateY(0); }
-  100% { opacity: 0; transform: translateY(0); }
-}
-@keyframes flow-blink {
-  0%, 49% { opacity: 1; }
-  50%, 100% { opacity: 0; }
-}
-@keyframes flow-bounce {
-  0%, 60%, 100% { transform: translateY(0); opacity: .5; }
-  30% { transform: translateY(-6px); opacity: 1; }
-}
-
-/* 降级：偏好减少动效时，展示完整静态流程，关闭全部动画 */
-@media (prefers-reduced-motion: reduce) {
-  .flow-input-text { animation: none; opacity: 1; }
-  .flow-char { animation: none; opacity: 1; transform: none; }
-  .flow-caret { animation: none; opacity: 0; }
-  .flow-processing { animation: none; opacity: 1; }
-  .flow-dot { animation: none; }
-  .flow-building { animation: none; opacity: 1; transform: none; }
-  .flow-code { animation: none; opacity: 1; transform: none; }
-}
+.make-guide summary::-webkit-details-marker { display: none; }
+.make-guide summary::after { content: "▾"; float: right; color: var(--muted); transition: transform var(--t-hover) ease; }
+.make-guide[open] summary::after { transform: rotate(180deg); }
+.make-guide-body { padding: 0 16px 14px; border-top: 1px solid var(--glass-border); }
+.make-guide-list { list-style: none; margin: 12px 0 0; padding: 0; }
+.make-guide-list li { display: flex; justify-content: space-between; gap: 16px; padding: 7px 0; font-size: 13px; border-bottom: 1px solid rgba(255, 255, 255, .06); }
+.make-guide-list li span:first-child { color: var(--muted); }
+.make-guide-list li span:last-child { color: var(--paper); text-align: right; }
+.make-guide-import { margin: 12px 0 0; font-size: 12px; color: var(--muted); line-height: 1.6; }
 
 

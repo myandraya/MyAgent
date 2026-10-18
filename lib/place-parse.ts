@@ -46,6 +46,8 @@ export type PlaceCandidate = {
   country: string;
   /** 行政归属（省/州等，用于区分同名地点） */
   administrativeArea: string;
+  /** 建筑/地点类型（如「歌剧院」「塔」「教堂」），用于帮助用户判断是哪一栋 */
+  type?: string;
   /** 简短说明，帮助用户区分（如「美国 · 得克萨斯州」） */
   hint: string;
 };
@@ -193,14 +195,14 @@ async function parseViaDeepSeek(text: string, signal: AbortSignal): Promise<Part
     signal,
     timeoutMs: 6_000,
     system: `你是地点解析器。把用户关于一座城市/一个地标的话解析成结构化 JSON，只输出 JSON，字段：
-{"city":"","cityEn":"","country":"","landmark":"","landmarkEn":"","mood":"","confidence":"high|low","needsConfirmation":false,"reason":"","candidates":[{"label":"","cityEn":"","country":"","administrativeArea":"","hint":""}]}
+{"city":"","cityEn":"","country":"","landmark":"","landmarkEn":"","mood":"","confidence":"high|low","needsConfirmation":false,"reason":"","candidates":[{"label":"","cityEn":"","country":"","administrativeArea":"","type":"","hint":""}]}
 规则：
 - city/cityEn：用户想表达的城市（中文名与英文名）；country 为国家/地区，不确定则空。
 - landmark/landmarkEn：用户明确提到的具体地标（如埃菲尔铁塔、悉尼歌剧院）；没提则空，不得臆造。泛称（歌剧院/铁塔）必须结合城市判断，不能无条件映射到唯一海外建筑。
 - mood：氛围/时间等非地点信息（如「黄昏」「夜晚」），没有则空。
 - confidence：地点身份明确且城市-地标归属一致才为 high；同名歧义、多城市、地标与城市冲突、无法确定城市、confidence 字段缺失或非法时一律为 low。
 - needsConfirmation：存在多个合理地点、地标城市冲突、或无法唯一确定时为 true，否则 false。
-- candidates：当 needsConfirmation 为 true 时，列出 2~4 个合理候选地点；label 为地点名，country/administrativeArea 为国家和行政归属，hint 为一句简短区分说明；无法列出候选时给空数组。
+- candidates：当 needsConfirmation 为 true 时，列出 2~4 个合理候选地点；label 为地点名，country/administrativeArea 为国家和行政归属，type 为建筑/地点类型（如「歌剧院」「塔」「教堂」，不确定则空），hint 为一句简短区分说明；无法列出候选时给空数组。
 - reason：不超过 60 字，说明判断依据，不要输出私有思维链。
 - 中文输入不得被当作只能指国内地点；纽约、洛杉矶、巴黎等海外城市照常识别。`,
     user: { text },
@@ -214,6 +216,7 @@ async function parseViaDeepSeek(text: string, signal: AbortSignal): Promise<Part
         cityEn: typeof c.cityEn === "string" ? c.cityEn : "",
         country: typeof c.country === "string" ? c.country : "",
         administrativeArea: typeof c.administrativeArea === "string" ? c.administrativeArea : "",
+        type: typeof c.type === "string" ? c.type : "",
         hint: typeof c.hint === "string" ? c.hint : "",
       })).filter((c) => c.label)
     : [];

@@ -208,6 +208,8 @@ export async function POST(request: Request): Promise<Response> {
   const { city: cityName, cityEn, country, landmark, landmarkEn, visualAnchors, subjectType, composition } = sceneBrief;
 
   // 4. 检索增强后的视觉简报 → 图像生成 → Potrace 闭合轮廓。
+  //    注：真实参考照片的「忠实还原」由前端 PromptEntry 走 /api/photo-search + /api/scene-photo 完成，
+  //    本路由只负责「无参考图时的 AI 文生图兜底」，职责单一，避免双重搜图。
   if (hasImageGenConfig()) {
     const image = await generateCitySilhouetteImage({ city: cityName, cityEn, country, landmark, landmarkEn, visualAnchors, composition, subjectType, signal: AbortSignal.timeout(30_000) });
     if (image) {

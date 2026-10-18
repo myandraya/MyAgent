@@ -4,8 +4,8 @@ import { AnimatePresence, motion } from "framer-motion";
 import { useEffect, useRef, useState } from "react";
 import worldGeo from "../data/world.geo.json";
 import { I18nContext, makeT } from "../lib/i18n.ts";
-import { FlowDemo } from "./FlowDemo.tsx";
 import { PromptEntry } from "./PromptEntry.tsx";
+import { ShowcasePanel } from "./ShowcasePanel.tsx";
 
 const transition = { type: "spring" as const, stiffness: 260, damping: 30, mass: 1 };
 
@@ -109,6 +109,8 @@ function WorldMapCanvas() {
 export function ShikeApp() {
   const [stage, setStage] = useState(0);
   const [lang, setLang] = useState<"zh" | "en">("zh");
+  // 首页直填输入框 / 示例一键带入：把文字带进 PromptEntry 的创作页
+  const [seedPrompt, setSeedPrompt] = useState("");
 
   const t = makeT(lang);
   return (
@@ -116,7 +118,7 @@ export function ShikeApp() {
       <main className="shike">
         <div className="shell">
           <header className="topbar">
-            <button className="brand" onClick={() => setStage(0)} style={{ border: 0, background: "none", padding: 0, cursor: "pointer" }}>MakerMuse</button>
+            <button className="brand" onClick={() => { try { localStorage.removeItem("shike:last-design"); } catch { /* ignore */ } setStage(0); }} style={{ border: 0, background: "none", padding: 0, cursor: "pointer" }}>MakerMuse</button>
             <div className="topbar-right">
               <div className="lang-switch">
                 <button className={`lang-btn ${lang === "zh" ? "active" : ""}`} onClick={() => setLang("zh")}>中</button>
@@ -137,7 +139,7 @@ export function ShikeApp() {
                     <h1 dangerouslySetInnerHTML={{ __html: t("hero_title") }} />
                     <p className="hero-desc">{t("hero_desc")}</p>
                     <div className="hero-entries">
-                      <button className="entry-card entry-primary" onClick={() => setStage(7)}>
+                      <button className="entry-card entry-primary" onClick={() => { setSeedPrompt(""); setStage(7); }}>
                         <span>{t("entry_a_span")}</span>
                         <strong>{t("entry_a_strong")} <b aria-hidden="true">→</b></strong>
                         <small>{t("entry_a_small")}</small>
@@ -145,7 +147,7 @@ export function ShikeApp() {
                     </div>
                   </div>
                   <div className="hero-visual">
-                    <FlowDemo />
+                    <ShowcasePanel />
                   </div>
                 </div>
               </motion.section>
@@ -153,7 +155,7 @@ export function ShikeApp() {
 
             {stage === 7 && (
               <motion.section key="prompt" initial={{ y: 40, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ x: 40, opacity: 0 }} transition={transition}>
-                <PromptEntry onBack={() => setStage(0)} />
+                <PromptEntry onBack={() => setStage(0)} seedPrompt={seedPrompt} />
               </motion.section>
             )}
           </AnimatePresence>
