@@ -38,10 +38,10 @@ export const DICT: Dict = {
   "entry_a_small": { zh: "一句话，把一栋建筑雕成镂空", en: "One sentence, one building carved hollow" },
 
   // 建筑镂空入口
-  "prompt_title": { zh: "说一句，建筑<br/>便有了轮廓", en: "Say a word, the building<br/>takes shape" },
+  "prompt_title": { zh: "说一句，把一栋建筑<br/>雕成镂空", en: "Say a word, carve a building<br/>into a cutout" },
   "prompt_desc": { zh: "不用会画画。你只负责说出那栋建筑，剩下的交给 AI——识别地标、生成镂空图案、按三层激光工艺（切穿/划线/雕刻）输出能直接雕刻的 SVG。", en: "No drawing skills needed. Just name that building — AI identifies the landmark, generates a hollow pattern, and outputs a laser-ready SVG in three layers (cut/score/engrave)." },
   "prompt_label": { zh: "一句建筑记忆", en: "A building memory" },
-  "prompt_placeholder": { zh: "例如：我想念巴黎埃菲尔铁塔的轮廓", en: "e.g. I miss the silhouette of the Eiffel Tower" },
+  "prompt_placeholder": { zh: "例如：巴黎埃菲尔铁塔", en: "e.g. Eiffel Tower, Paris" },
   "prompt_hint": { zh: "写「城市 + 建筑名」即可，不需要长提示词", en: "Just write \"city + building name\" — no long prompt needed" },
   "prompt_howto": { zh: "不需要写长提示词，写城市和建筑名称即可", en: "No long prompt needed — just the city and building name" },
   "prompt_limit_note": { zh: "知名地标、公共建筑还原最准；普通住宅或资料稀少的建筑，可能因缺乏可靠素材而无法生成。", en: "Famous landmarks and public buildings reproduce best; ordinary homes or under-documented buildings may fail due to lack of reliable references." },
@@ -51,7 +51,7 @@ export const DICT: Dict = {
   "prompt_example_sydney": { zh: "悉尼歌剧院", en: "Sydney Opera House" },
   "prompt_btn_working": { zh: "正在雕出你的建筑…", en: "Carving your building…" },
   "prompt_btn": { zh: "生成镂空", en: "Generate cutout" },
-  "prompt_empty_tip": { zh: "请先输入一句话，比如「我想念巴黎埃菲尔铁塔的轮廓」", en: "Please enter a line first, e.g. \"I miss the silhouette of the Eiffel Tower\"" },
+  "prompt_empty_tip": { zh: "请先输入建筑名，比如「巴黎埃菲尔铁塔」", en: "Please enter a building first, e.g. \"Eiffel Tower, Paris\"" },
   "prompt_working_status": { zh: "正在把这栋建筑雕成镂空…", en: "Carving this building into a cutout…" },
   "prompt_empty_status": { zh: "写下一栋你忘不掉的建筑，点「生成镂空」，AI 帮你雕出来", en: "Write down a building you can't forget, hit \"Generate\", and AI carves it out" },
   "prompt_source_ai": { zh: "AI 图像生成", en: "AI image gen" },
