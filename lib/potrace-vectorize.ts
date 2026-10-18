@@ -76,24 +76,23 @@ function extractPathData(pathTag: string): string {
 /**
  * 将 Potrace 输出的像素坐标系 path 缩放到 0..100 坐标系（与离线生成器一致）。
  *
- * Potrace 输出绝对命令 M/L/C（x y 交替），token 化后按 x/y 交替缩放。
- * 例如 "M 509.741 31.355 C 509.137 47.911, ..." → 所有 x 乘 scaleX，y 乘 scaleY。
+ * 关键修复（§7.1 保持比例）：必须用「统一缩放系数」缩放 X/Y，不能分别用
+ * 100/width 与 100/height 独立拉伸——那会让非方形输入的比例失真。
+ *
+ * 统一缩放 = 100 / max(width, height)：长边贴到 100，短边按原比例留白，
+ * 保持原图宽高比。下游 silhouette.ts 用真实包围盒等比映射到毫米画布。
  */
-function scalePathData(d: string, scaleX: number, scaleY: number): string {
+function scalePathData(d: string, scale: number): string {
   const tokens = d.match(/[MLCZz]|-?\d*\.?\d+/g);
   if (!tokens) return d;
   const out: string[] = [];
-  let isX = true;
   for (const token of tokens) {
     if (/^[MLCZz]$/.test(token)) {
       out.push(token);
-      // M/L/C 都以 x 坐标开头；Z 无坐标
-      if (token !== "Z" && token !== "z") isX = true;
       continue;
     }
-    const value = Number(token) * (isX ? scaleX : scaleY);
+    const value = Number(token) * scale;
     out.push(String(Math.round(value * 100) / 100));
-    isX = !isX;
   }
   return out.join(" ");
 }
@@ -129,6 +128,8 @@ export type PotraceVectorizeResult = {
   path: string;
   /** 是否成功（path 非空） */
   ok: boolean;
+  /** 原图宽高比（width/height），供下游按真实比例映射到毫米画布，避免非方形输入被拉伸 */
+  aspectRatio?: number;
 };
 
 /**
@@ -183,10 +184,12 @@ export async function potraceVectorize(base64: string, options?: PotraceOptions)
     if (width < 1 || height < 1) return { path: "", ok: false };
     const path = await traceWithPotraceClass(buffer, options);
     if (!path || path.length <= 10) return { path: "", ok: false };
-    const scaled = scalePathData(path, 100 / width, 100 / height);
+    // 统一缩放：保持原图比例，长边贴到 100，短边留白（不分别拉伸 X/Y）。
+    const uniformScale = 100 / Math.max(width, height);
+    const scaled = scalePathData(path, uniformScale);
     // clean line art 风格：所有子路径显式闭合 + 去重 + 丢碎片
     const cleaned = cleanLinePath(scaled);
-    return { path: cleaned, ok: cleaned.length > 10 };
+    return { path: cleaned, ok: cleaned.length > 10, aspectRatio: width / height };
   } catch (error) {
     console.error("[potrace-vectorize] 矢量化异常:", error);
     return { path: "", ok: false };

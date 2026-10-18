@@ -132,7 +132,7 @@ async function nominatimSearch(address: string, signal: AbortSignal): Promise<Ge
 export const maxDuration = 40;
 
 export async function POST(request: Request): Promise<Response> {
-  if (!allow(clientIp(request), 10, 10_000)) {
+  if (!allow(clientIp(request), 10, 10_000, "geocode")) {
     return Response.json({ error: "定位请求太频繁，请稍后再试。" }, { status: 429 });
   }
   let query = "";

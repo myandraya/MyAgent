@@ -2,12 +2,12 @@ import { expect, test } from "@playwright/test";
 
 test("一句话入口调用 AI 选景并提供真实 SVG", async ({ page }) => {
   await page.goto("/");
-  await page.getByRole("button", { name: /说一句那座城/ }).click();
+  await page.getByRole("button", { name: /说一句那栋楼/ }).click();
   await page.getByTestId("scene-memory").fill("我想念悉尼海港边的歌剧院");
   await page.getByRole("button", { name: "重新构图" }).click();
   await expect(page.getByText(/离线参数化|AI 图像生成/)).toBeVisible();
   const pending=page.waitForEvent("download");
-  await page.getByRole("button", { name: "下载剪影 SVG" }).click();
+  await page.getByRole("button", { name: "下载镂空 SVG" }).click();
   const filename = (await pending).suggestedFilename();
   expect(filename).toMatch(/shike-.+-silhouette\.svg/);
 });
@@ -30,7 +30,7 @@ test("移动端首页与一句话主入口无水平溢出", async ({ page }, tes
   await page.goto("/");
   await expect(page.getByRole("heading", { name: /我把第二故乡/ })).toBeVisible();
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth)).toBe(true);
-  await page.getByRole("button", { name: /说一句那座城/ }).click();
+  await page.getByRole("button", { name: /说一句那栋楼/ }).click();
   await expect(page.getByTestId("scene-memory")).toBeVisible();
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth)).toBe(true);
 });

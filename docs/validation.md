@@ -34,7 +34,7 @@ Playwright 通过本机已安装的 Google Chrome (`channel: chrome`) 运行，�
 
 ### 覆盖范围
 
-- 固定输入星图重复性、三城与南北半球、20 组 DFM 回归。
+- 固定输入重复性、三城与南北半球、20 组 DFM 回归。
 - SVG 毫米尺寸/viewBox/三层颜色/线宽/四角对位孔/无 `<text>`。
 - DXF 毫米单位和三层实体；下载内容和扩展名一致。
 - DFM 修复前发现问题、修复后复检、Falcon 与 A1C 缩放联动。
@@ -57,7 +57,6 @@ Playwright 通过本机已安装的 Google Chrome (`channel: chrome`) 运行，�
 | Falcon Design Space | 未执行：本机未安装 | 安装后导入 SVG/DXF，确认尺寸、图层和路径闭合 |
 | Creality Print | 未执行：本机未安装 | 安装后导入 STL，核对 198×198×24mm 包络、朝向与切片壁厚 |
 | OpenSCAD | 未执行：本机未安装 | 安装后打开参数源并渲染，与直接生成 STL 包络比对 |
-| Stellarium | 未执行：本机未安装 | 安装后抽查爱丁堡、悉尼、纽约在当地 22:00 的亮星方位 |
 | Claude Desktop / Cursor | 未执行 | 按 README MCP 配置分别调用三工具 |
 | DeepSeek 真实账号 | 已执行最小与完整Agent验证 | Key最小请求HTTP 200；完整ReAct为3.665s、2次模型调用、5轮；未输出密钥 |
 | 实机材料测试 | 未执行 | 3mm 椴木建立功率×速度测试矩阵后记录 |

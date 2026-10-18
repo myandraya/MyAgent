@@ -32,19 +32,22 @@ function isLocalKey(key: string): boolean {
  * @param key     限流标识（通常用客户端 IP）
  * @param limit   窗口内最大调用次数
  * @param windowMs 时间窗口（毫秒）
+ * @param scope   用途/接口标识（如 "photo-search"、"scene"），使不同接口互不占用同一配额。
+ *                传入后实际 bucket key = `${scope}:${key}`，避免「搜图→生成→重试」连续流程互相误伤。
  * @returns true 表示放行，false 表示超限拒绝
  */
-export function allow(key: string, limit: number, windowMs: number): boolean {
-  if (isLocalKey(key)) return true;
+export function allow(key: string, limit: number, windowMs: number, scope?: string): boolean {
+  const bucketKey = scope ? `${scope}:${key}` : key;
+  if (isLocalKey(bucketKey) || isLocalKey(key)) return true;
   const now = Date.now();
   prune(now);
-  const bucket = buckets.get(key);
+  const bucket = buckets.get(bucketKey);
   if (!bucket) {
-    buckets.set(key, { count: 1, resetAt: now + windowMs });
+    buckets.set(bucketKey, { count: 1, resetAt: now + windowMs });
     return true;
   }
   if (bucket.resetAt <= now) {
-    buckets.set(key, { count: 1, resetAt: now + windowMs });
+    buckets.set(bucketKey, { count: 1, resetAt: now + windowMs });
     return true;
   }
   bucket.count += 1;

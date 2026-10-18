@@ -6,14 +6,13 @@
 |---|---|---:|---|---|---|
 | R01 | P0 首页与三入口 | P1 | `components/ShikeApp.tsx`, `PhotoEntry.tsx`, `PromptEntry.tsx` | 旋转Canvas、指针视差、滚动入口、Playwright三入口 | ✅ 自动验证 |
 | R02 | P1 五屏输入、回退、碎片、SKU | P0/P1 | `ShikeApp.tsx`, `CityCombobox.tsx` | 城市联想键盘操作、五屏、标签→默认SKU、桌面/移动E2E | ✅ |
-| R03 | P2 两地真实星图与翻转 | P1 | `lib/stars.ts`, `ShikeApp.tsx` | 浏览器时区映射、星等stagger、保存时刻、三城测试 | 🟡 代码完成；未做Stellarium人工抽查 |
 | R04 | P3 ReAct、SSE、≤2次LLM、<15秒、断连降级 | P1 | `lib/agent.ts`, `app/api/events/route.ts` | 30ms deadline边界；真实DeepSeek 3.665s/2次/5轮；折叠面板 | ✅ 自动与真实API验证 |
 | R05 | P4 分层毫米 SVG 与下载 | P0 | `lib/svg.ts` | 结构/颜色/线宽/命名测试及浏览器下载 | 🟡 未在目标软件打开 |
 | R06 | DFM 与真实修复复检 | P0 | `lib/dfm.ts`, `lib/design.ts` | 修复前失败、修复后通过、20 组回归、E2E 审计事件 | ✅ |
 | R07 | Falcon/A1C/K1 设备联动 | P0/P1 | `data/devices.ts`, `data/printers.ts` | A1C 300→120mm 修复测试；K1 包络/壁厚测试 | ✅ 自动验证 |
 | R08 | 3D拖拽点亮、DFM定位、RAG/材料联动、双语诗 | P1 | `LampPreview.tsx`, `CraftCard.tsx`, `lib/rag.ts`, `lib/dfm.ts` | 指针拖拽、问题脉冲、共享材料状态、真实API | ✅ 代码；目标软件仍未验证 |
 | R09 | DXF / STL / PDF | P1/P2 | `lib/dxf.ts`, `lib/stl.ts`, `lib/pdf.ts` | DXF 单位/层；STL 流形/包络；PDF xref；四下载 E2E | 🟡 自动通过，目标软件未人工验证 |
-| R10 | P5 分享卡与隐私 | P1 | `lib/privacy.ts`, `ShikeApp.tsx` | 页面真实星图、移动端、下载字节与门牌隔离E2E | ✅ |
+| R10 | P5 分享卡与隐私 | P1 | `lib/privacy.ts`, `ShikeApp.tsx` | 移动端、下载字节与门牌隔离E2E | ✅ |
 | R11 | 照片主体提取 | P2 | `lib/photo.ts`, `lib/photo-vectorize.ts`, `lib/image-gen.ts`, `PhotoEntry.tsx` | Qwen 主体提取、本地连通域降级、闭合 DFM、Potrace SVG | ✅ 自动链路；真实模型效果待人工抽查 |
 | R12 | 一句话剪影 | P2 | `lib/silhouette.ts`, `lib/image-gen.ts`, `lib/silhouette-generators.ts`, `app/api/scene/route.ts` | DeepSeek 城市标准化、Wikimedia 地标检索、单场景视觉锚点、Qwen 生成、参数化兜底 | ✅ |
 | R13 | MCP 三工具共用核心 | P1 | `mcp/` | schema、错误输入、真实 stdio 客户端调用 | ✅；Claude/Cursor 人工双端未执行 |

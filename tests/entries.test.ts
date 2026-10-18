@@ -3,8 +3,8 @@ import test from "node:test";
 import { POST as scenePost } from "../app/api/scene/route.ts";
 import { POST as photoPost } from "../app/api/photo/route.ts";
 import { checkPhotoDfm, createHalftoneDesign, generatePhotoSvg, checkHollowPhotoDfm, generateHollowPhotoSvg, type HollowPhotoDesign } from "../lib/photo.ts";
-import { checkSilhouetteDfm, composeSilhouette, composeSilhouetteSelection, generateSilhouetteSvg, hasOnlyClosedSubpaths } from "../lib/silhouette.ts";
-import { generateFallbackSilhouette } from "../lib/silhouette-generators.ts";
+import { checkSilhouetteDfm, composeSilhouetteSelection, generateSilhouetteSvg, hasOnlyClosedSubpaths, computeMergedMaterial } from "../lib/silhouette.ts";
+import { computeCityNameLayout } from "../lib/text-path.ts";
 import { simplifyRdp, rasterToSvgPathMulti } from "../lib/image-to-svg.ts";
 import { potraceVectorize, potraceVectorizeMulti, cleanLinePath } from "../lib/potrace-vectorize.ts";
 import { keepLargestForegroundComponent } from "../lib/photo-vectorize.ts";
@@ -39,55 +39,32 @@ test("照片输入边界拒绝损坏像素和超幅尺寸", () => {
   assert.throws(() => createHalftoneDesign(checkerboard(10, 10), 400), /80\.\.360/);
 });
 
-test("任意城市名可生成 clean line art 单线轮廓剪影且结果可重复", () => {
-  const paris = composeSilhouette("我想念巴黎铁塔下的黄昏");
+test("任意城市名可构造剪影设计且结果可重复", () => {
+  const paris = composeSilhouetteSelection(
+    "巴黎", ["埃菲尔铁塔"], "2023-06-01", [],
+    { cutPaths: [], scorePaths: [], engravePaths: [], fillPaths: ["M10 10L90 10L90 90L10 90Z"] },
+  );
   assert.equal(checkSilhouetteDfm(paris).passed, true);
   const svg = generateSilhouetteSvg(paris);
-  // 统一尺寸 180×120mm
-  assert.match(svg, /width="180mm" height="120mm"/);
-  assert.match(svg, /viewBox="0 0 180 120"/);
-  // 单层结构：黑色描线（红色切穿外框已移除）
-  assert.match(svg, /id="engraving-line"[^>]*stroke="#000000"[^>]*stroke-width="0.2"/, "描线层黑色 0.2mm");
-  assert.doesNotMatch(svg, /id="cut-through"|stroke="#ff0000"/, "不再有红色切穿层");
-  // clean line art: 所有 path 必须 fill="none"
-  assert.match(svg, /fill="none"/);
-  assert.doesNotMatch(svg, /fill="#000000"|fill-rule="evenodd"/, "不允许实心填充");
-  // 兜底所有结构线都在 engrave 层
-  assert.ok(paris.engravePaths.length >= 1, "描线层非空");
+  // 统一尺寸 120×180mm（竖版）
+  assert.match(svg, /width="120mm" height="180mm"/);
+  assert.match(svg, /viewBox="0 0 120 180"/);
+  // 填充雕刻层黑色 evenodd
+  assert.match(svg, /id="engrave-layer"[^>]*fill="#000000"[^>]*fill-rule="evenodd"/);
   assert.doesNotMatch(svg, /<text\b/);
-  assert.deepEqual(composeSilhouette("我想念巴黎铁塔下的黄昏"), paris);
-  assert.throws(() => composeSilhouette(""), /1\.\.160/);
+  assert.deepEqual(composeSilhouetteSelection("巴黎", ["埃菲尔铁塔"], "2023-06-01", [], { fillPaths: ["M10 10L90 10L90 90L10 90Z"] }), paris);
 });
 
-test("参数化兜底生成器输出 clean line art 单线轮廓（统一在 engravePaths）", () => {
-  const a = generateFallbackSilhouette("京都", "清水寺");
-  const b = generateFallbackSilhouette("伊斯坦布尔", "圣索菲亚");
-  // clean line art 风格下，所有结构线都在 engravePaths；cutPaths 留空（外框由 SVG 模板生成）
-  assert.ok(a.engravePaths.length >= 5, `京都描线层至少 5 条，实际 ${a.engravePaths.length}`);
-  assert.ok(b.engravePaths.length >= 5, `伊斯坦布尔描线层至少 5 条，实际 ${b.engravePaths.length}`);
-  assert.equal(a.cutPaths.length, 0, "clean line art: cutPaths 应留空");
-  assert.equal(a.scorePaths.length, 0, "clean line art: scorePaths 应留空");
-  // 不同城市产出不同剪影
-  assert.notEqual(a.engravePaths[0], b.engravePaths[0]);
-  // 同城市可重复
-  assert.deepEqual(generateFallbackSilhouette("京都", "清水寺"), a);
+test("SVG 填充雕刻层：engrave-layer + evenodd", () => {
   const design = composeSilhouetteSelection(
-    "京都", ["清水寺"], "2023-06-01", a.paths,
-    { cutPaths: a.cutPaths, scorePaths: a.scorePaths, engravePaths: a.engravePaths },
+    "京都", ["清水寺"], "2023-06-01", [],
+    { cutPaths: [], scorePaths: [], engravePaths: [], fillPaths: ["M10 10L90 10L90 90L10 90ZM30 30L70 30L70 70L30 70Z"] },
   );
-  assert.equal(checkSilhouetteDfm(design).passed, true);
-});
-
-test("SVG clean line art 风格：单层工艺 + fill=none", () => {
-  const design = composeSilhouette("我想念京都清水寺的钟声");
   const svg = generateSilhouetteSvg(design);
-  // 红色切穿外框已移除，不再有 cut-through 层
+  // 无红色切穿层
   assert.doesNotMatch(svg, /id="cut-through"|stroke="#ff0000"/, "不再有红色切穿层");
-  // 描线层黑色 0.2mm（主体轮廓 + 结构线）
-  assert.match(svg, /id="engraving-line"[^>]*stroke="#000000"[^>]*stroke-width="0.2"/, "描线层黑色 0.2mm");
-  // clean line art: 所有 path 必须 fill="none"
-  assert.match(svg, /fill="none"/);
-  // 不再有三层结构，vector-score 已废弃
+  // 填充雕刻层黑色 evenodd
+  assert.match(svg, /id="engrave-layer"[^>]*fill="#000000"[^>]*fill-rule="evenodd"/);
   assert.doesNotMatch(svg, /id="vector-score"/);
 });
 
@@ -112,7 +89,7 @@ test("cleanLinePath 显式闭合 + 去重 + 丢弃碎片", () => {
   assert.doesNotMatch(cleaned, /MABC/, "过短子路径应丢弃");
 });
 
-test("Potrace 复合轮廓按闭合填充雕刻导出，不再伪装成单线稿", () => {
+test("Potrace 复合轮廓按闭合填充雕刻导出，材料合并为单一整体（§7.2）", () => {
   const compound = "M10 10L90 10L90 90L10 90ZM30 30L70 30L70 70L30 70Z";
   const design = composeSilhouetteSelection(
     "京都", ["清水寺"], "2023-06-01", [],
@@ -122,8 +99,40 @@ test("Potrace 复合轮廓按闭合填充雕刻导出，不再伪装成单线稿
   assert.equal(checkSilhouetteDfm(design).passed, true);
   const svg = generateSilhouetteSvg(design);
   assert.match(svg, /id="engrave-layer"[^>]*fill="#000000"[^>]*fill-rule="evenodd"[^>]*stroke="none"/);
-  assert.match(svg, /translate\(6 6\) scale\(1\.68 1\.08\)/, "内容应完整落在 180×120mm 画布内");
-  assert.doesNotMatch(svg, /scale\(1\.8\)/, "不得再纵向裁掉轮廓");
+  // §7.2 材料布尔合并：相框+横条+建筑焊接成单一 <path>（含外轮廓与内孔），
+  // 不再有独立的建筑 transform 或独立横条元素（内部重叠边已消失）。
+  const merged = computeMergedMaterial(design);
+  assert.ok(merged.length > 0, "应产出合并后的材料路径");
+  // 合并结果应包含：相框外沿（6..114 / 6..174）与建筑内孔（建筑等比缩放、底部坐线 y=130）。
+  assert.match(merged, /M6 6L114 6L114 174L6 174L6 6Z/, "相框外沿应保留");
+  assert.match(svg, new RegExp(merged.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")), "SVG 应使用合并后的单一材料路径");
+  // 建筑等比缩放（scale=1.275）、底部压线 y=130+1.2（buildingOverlap，压进横条咬合）：
+  //   30*1.275-3.75=34.5, 70*1.275-3.75=85.5；translateY=131.2-90*1.275=16.45 → 30*1.275+16.45=54.7, 70*1.275+16.45=105.7。
+  assert.match(merged, /M34\.5 54\.7L34\.5 105\.7L85\.5 105\.7L85\.5 54\.7L34\.5 54\.7Z/, "建筑内孔应按等比缩放正确映射（证明不变形 + 底部压线咬合）");
+  // 合并后不再有独立的 scale transform（已焊接进整体）。
+  assert.doesNotMatch(svg, /scale\(1\.275 1\.275\)/, "建筑不再作为独立 transform 元素存在（已合并）");
+});
+
+test("城市名字形纳入布尔合并，字母与横条/相框焊成一体（§7.2）", () => {
+  // 用真实 opentype 字形 + 布局（Node 测试环境可直接加载字体）。
+  const layout = computeCityNameLayout("PARIS");
+  assert.ok(layout, "应能算出 PARIS 字形布局");
+  const design = composeSilhouetteSelection("巴黎", ["埃菲尔铁塔"], "2023-06-01", [], {
+    fillPaths: ["M20 30L80 30L80 95L20 95Z"],
+    cityNameXml: "",
+    cityNameText: "PARIS",
+    cityNamePath: layout!.path,
+    cityNameLayout: { x: layout!.x, baselineY: layout!.baselineY, glyphTopY: layout!.glyphTopY },
+  });
+  const merged = computeMergedMaterial(design);
+  assert.ok(merged.length > 0, "应产出合并后的材料路径（含字形）");
+  // 字形 path（基线原点、y 向下为正）不应以原始负 y 坐标残留（已映射到画布坐标）。
+  assert.doesNotMatch(merged, /-\d/, "字形不应残留负 y 坐标（已映射到画布）");
+  // 合并结果中应包含字母内孔（P/A/R 的封闭圈），证明字形已参与合并。
+  // 字形应焊进整体，而非独立 <g> 输出。
+  const svg = generateSilhouetteSvg(design);
+  assert.doesNotMatch(svg, /id="engraving-text"/, "合并后字形不再作为独立 <g> 输出");
+  assert.match(svg, new RegExp(merged.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")), "SVG 应使用含字形的合并材料路径");
 });
 
 test("剪影 DFM 拒绝未闭合的切割或雕刻轮廓", () => {
@@ -200,39 +209,29 @@ test("Potrace 能从含镂空的 PNG 提取复合 path（含外轮廓 + 孔洞�
   assert.ok(contours.length >= 2, `多轮廓版应至少 2 个 contour，实际 ${contours.length}`);
 });
 
-test("占位 key 下不调用网络并可靠降级到参数化镂空剪影", async () => {
+test("占位 key 下不调用网络并返回明确错误（不再降级到参数化兜底）", async () => {
   const originalKey=process.env.DEEPSEEK_API_KEY, originalFetch=globalThis.fetch;
   process.env.DEEPSEEK_API_KEY="sk-placeholder-replace-me";
   let called=false; globalThis.fetch=async()=>{called=true;throw new Error("unexpected")};
   try {
     const response=await scenePost(new Request("http://localhost/api/scene",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({prompt:"我想念悉尼歌剧院"})}));
-    const result=await response.json() as {city:string;landmark:string;paths:string[];cutPaths:string[];engravePaths:string[];source:string};
+    const result=await response.json() as {error?:string};
     assert.equal(called,false);
-    assert.equal(result.source,"offline");
-    assert.ok(Array.isArray(result.paths) && result.paths.length>0);
-    // clean line art: 所有结构线在 engravePaths，cutPaths 留空
-    assert.ok(Array.isArray(result.engravePaths) && result.engravePaths.length>=5, "描线层至少 5 条");
-    assert.equal(result.cutPaths.length, 0, "clean line art: cutPaths 应留空");
-    assert.ok(result.paths.every((p:string)=>typeof p==="string" && p.startsWith("M")));
+    assert.equal(response.status,502);
+    assert.ok(result.error);
   } finally { globalThis.fetch=originalFetch; if(originalKey===undefined)delete process.env.DEEPSEEK_API_KEY;else process.env.DEEPSEEK_API_KEY=originalKey; }
 });
 
-test("DeepSeek 识别任意城市并返回分层 paths（无白名单）", async () => {
+test("DeepSeek 识别任意城市但无图像 key 时返回明确错误", async () => {
   const originalKey=process.env.DEEPSEEK_API_KEY, originalFetch=globalThis.fetch;
   process.env.DEEPSEEK_API_KEY="sk-test-key";
-  // mock fetch：DeepSeek 返回 JSON，Qwen/Potrace 走 mock 也 OK 但图像 URL fetch 会失败 → 降级到 offline
+  // mock fetch：DeepSeek 返回 JSON，但 image-gen 未配置 → 应返回 502 错误而非 offline 兜底
   globalThis.fetch=async()=>new Response(JSON.stringify({choices:[{message:{content:JSON.stringify({city:"京都",landmark:"清水寺"})}}]}),{status:200});
   try {
     const response=await scenePost(new Request("http://localhost/api/scene",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({prompt:"秋天走过京都的寺院"})}));
-    const result=await response.json() as {city:string;landmark:string;paths:string[];cutPaths:string[];engravePaths:string[];source:string};
-    assert.equal(result.city,"京都");
-    assert.equal(result.landmark,"清水寺");
-    assert.ok(Array.isArray(result.paths) && result.paths.length>0);
-    // clean line art: 结构线在 engravePaths，cutPaths 留空
-    assert.ok(Array.isArray(result.engravePaths) && result.engravePaths.length>=5, "描线层至少 5 条");
-    assert.equal(result.cutPaths.length, 0, "cut 层应留空");
-    // 因 image-gen 未配置（DASHSCOPE_API_KEY 未设），降级到 offline
-    assert.equal(result.source,"offline");
+    const result=await response.json() as {error?:string};
+    assert.equal(response.status,502);
+    assert.ok(result.error);
   } finally { globalThis.fetch=originalFetch; if(originalKey===undefined)delete process.env.DEEPSEEK_API_KEY;else process.env.DEEPSEEK_API_KEY=originalKey; }
 });
 
@@ -294,7 +293,7 @@ test("只输入南安普顿时，检索真实地标并把视觉锚点交给 Qwen
   }
 });
 
-test("场景 ReAct Agent 最多让 DeepSeek 修订 5 轮，再且只调用一次 Qwen 生图", async () => {
+test("场景 ReAct Agent 最多让 DeepSeek 修订 3 轮，再且只调用一次 Qwen 生图", async () => {
   const png = new PNG({ width: 32, height: 32 });
   for (let y = 0; y < 32; y += 1) for (let x = 0; x < 32; x += 1) {
     const i = (y * 32 + x) * 4;
@@ -314,7 +313,7 @@ test("场景 ReAct Agent 最多让 DeepSeek 修订 5 轮，再且只调用一次
     const url = String(input);
     if (url.includes("api.deepseek.com")) {
       deepSeekCalls += 1;
-      const final = deepSeekCalls === 5;
+      const final = deepSeekCalls === 3;
       return Response.json({ choices: [{ message: { content: JSON.stringify({
         action: final ? "finish" : deepSeekCalls === 1 ? "search_landmarks" : "revise_brief",
         decision: final ? "简报完整，提交生图。" : "继续校对可视特征。",
@@ -338,12 +337,12 @@ test("场景 ReAct Agent 最多让 DeepSeek 修订 5 轮，再且只调用一次
     const response = await scenePost(new Request("http://localhost/api/scene", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ prompt: "南安普顿" }) }));
     const result = await response.json() as { source: string; agent?: { rounds: number; status: string; events: unknown[] } };
     assert.equal(result.source, "image-gen");
-    assert.equal(deepSeekCalls, 5);
+    assert.equal(deepSeekCalls, 3);
     assert.equal(qwenCalls, 1);
-    assert.equal(qwenAfterRound, 5, "Qwen 必须在 DeepSeek 修订完成后才调用");
-    assert.equal(result.agent?.rounds, 5);
+    assert.equal(qwenAfterRound, 3, "Qwen 必须在 DeepSeek 修订完成后才调用");
+    assert.equal(result.agent?.rounds, 3);
     assert.equal(result.agent?.status, "completed");
-    assert.equal(result.agent?.events.length, 5);
+    assert.equal(result.agent?.events.length, 3);
   } finally {
     globalThis.fetch = originalFetch;
     if (originalDeepSeekKey === undefined) delete process.env.DEEPSEEK_API_KEY; else process.env.DEEPSEEK_API_KEY = originalDeepSeekKey;
@@ -417,7 +416,8 @@ test("/api/photo 先调用 Qwen 图像编辑提取主体，再执行 Potrace", a
     if (String(input).includes("multimodal-generation")) {
       const body = JSON.parse(String(init?.body)) as { input: { messages: { content: { image?: string; text?: string }[] }[] } };
       assert.match(body.input.messages[0].content[0].image ?? "", /^data:image\/png;base64,/);
-      assert.match(body.input.messages[0].content[1].text ?? "", /single main subject/);
+      assert.match(body.input.messages[0].content[1].text ?? "", /single most typical/);
+      assert.match(body.input.messages[0].content[1].text ?? "", /one building/);
       return Response.json({ output: { choices: [{ message: { content: [{ image: "https://example.test/qwen-subject.png" }] } }] } });
     }
     return new Response(new Uint8Array(image), { status: 200, headers: { "Content-Type": "image/png" } });
@@ -438,22 +438,27 @@ test("/api/photo 先调用 Qwen 图像编辑提取主体，再执行 Potrace", a
   }
 });
 
-test("照片 ReAct 在首轮无镂空时把审计结果反馈给 Qwen 并修复", async () => {
-  const makeImage = (withHole: boolean) => {
+test("照片 ReAct 在首轮线条过稀疏时把审计结果反馈给 Qwen 并修复", async () => {
+  // blank：全白（前景占比≈0，触发「线条过稀疏」）
+  const blank = (() => {
+    const png = new PNG({ width: 32, height: 32 });
+    for (let i = 0; i < png.data.length; i += 4) { png.data[i] = 255; png.data[i + 1] = 255; png.data[i + 2] = 255; png.data[i + 3] = 255; }
+    return PNG.sync.write(png);
+  })();
+  // lines：有合理黑色笔画（边框线条），笔画占比健康
+  const lines = (() => {
     const png = new PNG({ width: 32, height: 32 });
     for (let y = 0; y < 32; y += 1) for (let x = 0; x < 32; x += 1) {
       const i = (y * 32 + x) * 4;
-      const inside = x >= 5 && x <= 26 && y >= 5 && y <= 26;
-      const hole = withHole && x >= 12 && x <= 19 && y >= 12 && y <= 19;
-      const value = inside && !hole ? 0 : 255;
+      const onBorder = x < 2 || x > 29 || y < 2 || y > 29;
+      const onCross = (x > 14 && x < 17) || (y > 14 && y < 17);
+      const value = onBorder || onCross ? 0 : 255;
       png.data[i] = value; png.data[i + 1] = value; png.data[i + 2] = value; png.data[i + 3] = 255;
     }
     return PNG.sync.write(png);
-  };
-  const solid = makeImage(false);
-  const hollow = makeImage(true);
+  })();
   const formData = new FormData();
-  formData.append("photo", new Blob([new Uint8Array(solid)], { type: "image/png" }), "subject.png");
+  formData.append("photo", new Blob([new Uint8Array(blank)], { type: "image/png" }), "subject.png");
   const originalKey = process.env.DASHSCOPE_API_KEY;
   const originalFetch = globalThis.fetch;
   let qwenCalls = 0;
@@ -464,23 +469,22 @@ test("照片 ReAct 在首轮无镂空时把审计结果反馈给 Qwen 并修复"
       qwenCalls += 1;
       const body = JSON.parse(String(init?.body)) as { input: { messages: { content: { text?: string }[] }[] } };
       const prompt = body.input.messages[0].content.find((item) => item.text)?.text ?? "";
-      if (qwenCalls === 2) assert.match(prompt, /Vector audit feedback:.*0/);
-      return Response.json({ output: { choices: [{ message: { content: [{ image: `https://example.test/${qwenCalls === 1 ? "solid" : "hollow"}.png` }] } }] } });
+      if (qwenCalls === 2) assert.match(prompt, /Vector audit feedback:/);
+      return Response.json({ output: { choices: [{ message: { content: [{ image: `https://example.test/${qwenCalls === 1 ? "blank" : "lines"}.png` }] } }] } });
     }
-    const bytes = url.includes("hollow.png") ? hollow : solid;
+    const bytes = url.includes("lines.png") ? lines : blank;
     return new Response(new Uint8Array(bytes), { status: 200, headers: { "Content-Type": "image/png" } });
   };
   try {
     const response = await photoPost(new Request("http://localhost/api/photo", { method: "POST", body: formData }));
-    const result = await response.json() as { ok: boolean; source: string; holeCount: number; agent: { rounds: number; status: string; events: { action: string; observation: string }[] } };
+    const result = await response.json() as { ok: boolean; source: string; agent: { rounds: number; status: string; events: { action: string; observation: string }[] } };
     assert.equal(response.status, 200);
     assert.equal(result.ok, true);
     assert.equal(result.source, "qwen");
-    assert.equal(result.holeCount, 1);
     assert.equal(qwenCalls, 2);
     assert.equal(result.agent.rounds, 2);
     assert.equal(result.agent.status, "completed");
-    assert.match(result.agent.events[0].observation, /孔洞为 0/);
+    assert.match(result.agent.events[0].observation, /稀疏|不可见/);
     assert.equal(result.agent.events[1].action, "finish");
   } finally {
     globalThis.fetch = originalFetch;
@@ -543,4 +547,37 @@ test("HollowPhotoDesign 拒绝未闭合的照片轮廓", () => {
   const report = checkHollowPhotoDfm(design);
   assert.equal(report.passed, false);
   assert.ok(report.issues.some((i) => i.code === "OPEN_PATH"));
+});
+
+test("城市名排版支持横竖幅，横幅画布 180×120、文字横排", () => {
+  const portrait = computeCityNameLayout("Cologne", "portrait");
+  const landscape = computeCityNameLayout("Cologne", "landscape");
+  assert.ok(portrait && landscape, "两种方向都应能算出布局");
+  // 横幅画布更宽（180 > 120），可用宽度更大，字号应更大或至少不低于竖幅。
+  assert.ok(landscape!.fontSize >= portrait!.fontSize, "横幅可用宽度更大，字号不应小于竖幅");
+  // 横幅底部内沿 = 111，基线应靠近 111 附近（+overlap 1.2 压框）。
+  assert.ok(landscape!.baselineY > 100 && landscape!.baselineY < 115, `横幅基线应在 111 附近，实际 ${landscape!.baselineY}`);
+  // 竖幅底部内沿 = 171，基线应靠近 171。
+  assert.ok(portrait!.baselineY > 165 && portrait!.baselineY < 176, `竖幅基线应在 171 附近，实际 ${portrait!.baselineY}`);
+  // 方向字段回传正确。
+  assert.equal(landscape!.orientation, "landscape");
+  assert.equal(portrait!.orientation, "portrait");
+});
+
+test("横幅剪影 SVG 输出 180×120 viewBox 与横置相框", () => {
+  const layout = computeCityNameLayout("Cologne", "landscape");
+  assert.ok(layout, "应能算出横幅字形布局");
+  const design = composeSilhouetteSelection("科隆", ["科隆大教堂"], "2023-06-01", [], {
+    fillPaths: ["M20 20Q40 5 60 20Q80 35 85 60L85 90L20 90Z"],
+    cityNameXml: "",
+    cityNameText: "COLOGNE",
+    cityNamePath: layout!.path,
+    cityNameLayout: { x: layout!.x, baselineY: layout!.baselineY, glyphTopY: layout!.glyphTopY },
+    orientation: "landscape",
+  });
+  const svg = generateSilhouetteSvg(design);
+  assert.match(svg, /viewBox="0 0 180 120"/, "横幅应输出 180×120 viewBox");
+  assert.match(svg, /width="180mm" height="120mm"/, "横幅物理尺寸 180×120mm");
+  // 相框外沿：横幅 180×120，四周留 6mm → 外沿 6..174 / 6..114。
+  assert.match(svg, /M6 6L174 6L174 114L6 114L6 6Z/, "横幅相框外沿应为 6..174 / 6..114");
 });

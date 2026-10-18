@@ -65,7 +65,7 @@ export function buildShareCardSvg(info: ShareCardInfo): string {
   <!-- 顶部品牌行 -->
   <g transform="translate(80 96)">
     <circle cx="0" cy="0" r="20" fill="url(#brand)"/>
-    <text x="40" y="12" text-anchor="start" font-family="-apple-system, 'Helvetica Neue', Arial, sans-serif" font-size="44" font-weight="700" fill="#0f172a">城市木刻师 <tspan font-weight="500" fill="#64748b">CITY WOODCARVER</tspan></text>
+    <text x="40" y="12" text-anchor="start" font-family="-apple-system, 'Helvetica Neue', Arial, sans-serif" font-size="44" font-weight="700" fill="#0f172a">建筑木刻师 <tspan font-weight="500" fill="#64748b">ARCHITECTURE WOODCARVER</tspan></text>
   </g>
   <!-- 标题 + 日期 -->
   <text x="80" y="240" font-family="-apple-system, 'Helvetica Neue', Arial, sans-serif" font-size="64" font-weight="700" fill="#0f172a">${esc(info.title.slice(0, 16))}</text>
@@ -78,16 +78,16 @@ export function buildShareCardSvg(info: ShareCardInfo): string {
   <!-- 底部：用户 + 二维码 -->
   <g transform="translate(80 1000)">
     <circle cx="36" cy="36" r="36" fill="#f97316"/>
-    <text x="36" y="50" text-anchor="middle" font-family="-apple-system, 'Helvetica Neue', Arial, sans-serif" font-size="32" font-weight="700" fill="#ffffff">城</text>
-    <text x="92" y="48" font-family="-apple-system, 'Helvetica Neue', Arial, sans-serif" font-size="30" font-weight="600" fill="#0f172a">城市木刻师</text>
+    <text x="36" y="50" text-anchor="middle" font-family="-apple-system, 'Helvetica Neue', Arial, sans-serif" font-size="32" font-weight="700" fill="#ffffff">建</text>
+    <text x="92" y="48" font-family="-apple-system, 'Helvetica Neue', Arial, sans-serif" font-size="30" font-weight="600" fill="#0f172a">建筑木刻师</text>
   </g>
   <g transform="translate(1040 1000)">
     <rect x="-16" y="-16" width="144" height="144" rx="18" fill="#ffffff" stroke="#e2e8f0" stroke-width="2"/>
     <g fill="#0f172a">${qrCells.join("")}</g>
   </g>
   <!-- 底部 slogan + 版权 -->
-  <text x="600" y="1290" text-anchor="middle" font-family="-apple-system, 'Helvetica Neue', Arial, sans-serif" font-size="28" fill="#64748b">${esc("城市木刻师 · 一句话，把忘不掉的城刻下来")}</text>
-  <text x="600" y="1332" text-anchor="middle" font-family="-apple-system, 'Helvetica Neue', Arial, sans-serif" font-size="22" fill="#cbd5e1">${esc("© 2026 城市木刻师 City Woodcarver")}</text>
+  <text x="600" y="1290" text-anchor="middle" font-family="-apple-system, 'Helvetica Neue', Arial, sans-serif" font-size="28" fill="#64748b">${esc("建筑木刻师 · 把那栋你忘不掉的楼，刻下来")}</text>
+  <text x="600" y="1332" text-anchor="middle" font-family="-apple-system, 'Helvetica Neue', Arial, sans-serif" font-size="22" fill="#cbd5e1">${esc("© 2026 建筑木刻师 Architecture Woodcarver")}</text>
 </svg>`;
 }
 

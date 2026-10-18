@@ -4,7 +4,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { useEffect, useRef, useState } from "react";
 import worldGeo from "../data/world.geo.json";
 import { I18nContext, makeT } from "../lib/i18n.ts";
-import { PhotoEntry } from "./PhotoEntry.tsx";
+import { FlowDemo } from "./FlowDemo.tsx";
 import { PromptEntry } from "./PromptEntry.tsx";
 
 const transition = { type: "spring" as const, stiffness: 260, damping: 30, mass: 1 };
@@ -103,7 +103,7 @@ function WorldMapCanvas() {
       window.removeEventListener("blur", leave);
     };
   }, []);
-  return <canvas ref={ref} className="star-canvas" aria-label="鼠标悬停处地图亮起的世界地图"/>;
+  return <canvas ref={ref} className="map-canvas" aria-label="鼠标悬停处地图亮起的世界地图"/>;
 }
 
 export function ShikeApp() {
@@ -133,29 +133,24 @@ export function ShikeApp() {
                 <WorldMapCanvas />
                 <div className="hero-landing">
                   <div className="hero-copy">
+                    <p className="eyebrow">{t("hero_eyebrow")}</p>
                     <h1 dangerouslySetInnerHTML={{ __html: t("hero_title") }} />
+                    <p className="hero-desc">{t("hero_desc")}</p>
+                    <div className="hero-entries">
+                      <button className="entry-card entry-primary" onClick={() => setStage(7)}>
+                        <span>{t("entry_a_span")}</span>
+                        <strong>{t("entry_a_strong")} <b aria-hidden="true">→</b></strong>
+                        <small>{t("entry_a_small")}</small>
+                      </button>
+                    </div>
                   </div>
-                  <div className="hero-entries">
-                    <button className="entry-card entry-primary" onClick={() => setStage(7)}>
-                      <span>{t("entry_a_span")}</span>
-                      <strong>{t("entry_a_strong")} <b aria-hidden="true">→</b></strong>
-                      <small>{t("entry_a_small")}</small>
-                    </button>
-                    <button className="entry-card entry-secondary" onClick={() => setStage(6)}>
-                      <span>{t("entry_b_span")}</span>
-                      <strong>{t("entry_b_strong")} <b aria-hidden="true">→</b></strong>
-                      <small>{t("entry_b_small")}</small>
-                    </button>
+                  <div className="hero-visual">
+                    <FlowDemo />
                   </div>
                 </div>
               </motion.section>
             )}
 
-            {stage === 6 && (
-              <motion.section key="photo" initial={{ y: 40, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ x: 40, opacity: 0 }} transition={transition}>
-                <PhotoEntry onBack={() => setStage(0)} />
-              </motion.section>
-            )}
             {stage === 7 && (
               <motion.section key="prompt" initial={{ y: 40, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ x: 40, opacity: 0 }} transition={transition}>
                 <PromptEntry onBack={() => setStage(0)} />

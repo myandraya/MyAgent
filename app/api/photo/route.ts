@@ -19,24 +19,24 @@ type PhotoResult = {
   agent: { rounds: number; status: "completed" | "degraded"; events: PhotoAgentEvent[] };
 };
 
+/** 线稿语义的矢量审计：不强制孔洞（线雕靠笔画表达），重点看笔画占比是否健康。 */
 function photoAudit(result: PhotoVectorizeResult): string[] {
   const issues: string[] = [];
   if (!result.ok) issues.push("未提取到有效闭合轮廓");
-  if (result.holeCount < 1) issues.push("内部有效镂空孔洞为 0");
-  if (result.foregroundRatio < 0.03) issues.push("主体占比过小");
-  if (result.foregroundRatio > 0.85) issues.push("主体或背景黑色占比过大");
+  if (result.foregroundRatio < 0.008) issues.push("线条过稀疏，主体几乎不可见");
+  if (result.foregroundRatio > 0.7) issues.push("黑色笔画占比过大，疑似实心填充而非线稿");
   return issues;
 }
 
 /**
- * 照片入口 API：浏览器上传图片 → Qwen 主体提取 → 本地清理 → Potrace → 镂空 path。
+ * 照片入口 API：浏览器上传图片 → Qwen 线稿转换 → 本地清理 → Potrace → 线稿 path。
  *
  * 流程：
  *   1. 接收 multipart/form-data 上传的图片（前端已统一转为 PNG）
- *   2. Qwen 图像编辑提取单一主体、清除背景；失败则使用原图
- *   3. Otsu 自适应阈值二值化并删除与主体断开的黑色孤岛
- *   4. Potrace 追踪主体暗部轮廓 + 内部孔洞
- *   5. 输出 0..100 坐标系的复合 path（fill-rule=evenodd 实现镂空）
+ *   2. Qwen 图像编辑把主体转成填色本式线稿、清除背景；失败则使用原图
+ *   3. Otsu 自适应阈值二值化，多笔画模式下保留所有面积达标的笔画
+ *   4. Potrace 追踪笔画轮廓（细线 → 细闭合丝带 path）
+ *   5. 输出 0..100 坐标系的复合 path（engrave-layer 填充渲染即线描效果）
  */
 export async function POST(request: Request): Promise<Response> {
   // 限流：同一 IP 每 15 秒最多 1 次，防止脚本刷量盗刷 AI 额度。
@@ -66,7 +66,7 @@ export async function POST(request: Request): Promise<Response> {
       ? Math.max(-60, Math.min(60, Number(biasRaw)))
       : 0;
 
-    // Qwen 生成候选，本地矢量审计输出 Observation；没有真实孔洞时最多修复 3 轮。
+    // Qwen 生成候选，本地矢量审计输出 Observation；线稿不达标时最多修复 3 轮。
     const events: PhotoAgentEvent[] = [];
     let currentImage = base64;
     let feedback = "";
@@ -78,24 +78,24 @@ export async function POST(request: Request): Promise<Response> {
         const extracted = await extractPhotoSubjectImage({ base64: currentImage, signal: AbortSignal.timeout(45_000), feedback: feedback || undefined });
         if (!extracted) break;
         currentImage = extracted.base64;
-        const candidate = await vectorizePhoto(currentImage, { thresholdBias });
-        if (!bestResult || candidate.holeCount > bestResult.holeCount) bestResult = candidate;
+        const candidate = await vectorizePhoto(currentImage, { thresholdBias, multiStroke: true });
+        if (!bestResult || candidate.foregroundRatio > bestResult.foregroundRatio) bestResult = candidate;
         const issues = photoAudit(candidate);
         const observation = issues.length
-          ? `${issues.join("；")}；黑色主体占比 ${(candidate.foregroundRatio * 100).toFixed(1)}%`
-          : `检测到 ${candidate.holeCount} 个有效闭合孔洞，黑色主体占比 ${(candidate.foregroundRatio * 100).toFixed(1)}%`;
+          ? `${issues.join("；")}；黑色笔画占比 ${(candidate.foregroundRatio * 100).toFixed(1)}%`
+          : `线稿提取成功：黑色笔画占比 ${(candidate.foregroundRatio * 100).toFixed(1)}%，闭合区域 ${candidate.holeCount} 个`;
         events.push({ round, action: issues.length ? round === 1 ? "extract_subject" : "repair_holes" : "finish", observation });
         if (issues.length === 0) {
           result = candidate;
           source = "qwen";
           break;
         }
-        feedback = `${observation}. Keep one recognizable connected black subject and add large fully enclosed white negative-space cutouts; do not add detached marks.`;
+        feedback = `${observation}. Keep clean continuous outline strokes of one recognizable subject with uniform line width; remove solid black fill, dense scribbles and detached marks.`;
       }
     }
     if (!result) {
       const local = await vectorizePhoto(base64, { thresholdBias });
-      result = bestResult && bestResult.holeCount > local.holeCount ? bestResult : local;
+      result = bestResult && bestResult.foregroundRatio > local.foregroundRatio ? bestResult : local;
       source = result === bestResult ? "qwen" : "local";
     }
     if (!result.ok) {

@@ -22,7 +22,7 @@ export type Device = {
 };
 
 export type DfmIssue = {
-  code: "DEVICE_UNKNOWN" | "ENVELOPE" | "CUT_STROKE" | "LINE_WIDTH" | "OPEN_PATH" | "NO_HOLES" | "SUBJECT_COVERAGE";
+  code: "DEVICE_UNKNOWN" | "ENVELOPE" | "CUT_STROKE" | "LINE_WIDTH" | "OPEN_PATH" | "NO_HOLES" | "SUBJECT_COVERAGE" | "ISOLATED_MATERIAL";
   severity: "error" | "warning";
   message: string;
 };

@@ -61,16 +61,17 @@ export type PhotoVectorizeOptions = {
   turdSize?: number;
   /** 阈值偏移量：-60..60，负数保留更多暗部为前景，正数反之。默认 0 */
   thresholdBias?: number;
+  /** 多笔画模式（线稿）：保留所有面积达标的前景连通域，而非只留最大一块。默认 false */
+  multiStroke?: boolean;
 };
 
-/** 8 邻域连通域筛选：只保留主体，删除与主体完全断开的黑色孤岛。 */
-export function keepLargestForegroundComponent(foreground: Uint8Array, width: number, height: number): Uint8Array {
+/** 8 邻域连通域标记：返回 { labels, sizes }，label 从 1 开始，0 为背景。 */
+function labelForegroundComponents(foreground: Uint8Array, width: number, height: number): { labels: Int32Array; sizes: number[] } {
   if (foreground.length !== width * height) throw new Error("前景蒙版尺寸无效。");
   const labels = new Int32Array(foreground.length);
   const queue = new Int32Array(foreground.length);
+  const sizes: number[] = [];
   let label = 0;
-  let largestLabel = 0;
-  let largestSize = 0;
 
   for (let start = 0; start < foreground.length; start += 1) {
     if (!foreground[start] || labels[start]) continue;
@@ -94,14 +95,41 @@ export function keepLargestForegroundComponent(foreground: Uint8Array, width: nu
         queue[tail++] = next;
       }
     }
-    if (tail > largestSize) {
-      largestSize = tail;
-      largestLabel = label;
-    }
+    sizes.push(tail);
   }
+  return { labels, sizes };
+}
 
+/** 8 邻域连通域筛选：只保留主体，删除与主体完全断开的黑色孤岛。 */
+export function keepLargestForegroundComponent(foreground: Uint8Array, width: number, height: number): Uint8Array {
+  const { labels, sizes } = labelForegroundComponents(foreground, width, height);
+  let largestLabel = 0;
+  let largestSize = 0;
+  sizes.forEach((size, index) => {
+    if (size > largestSize) {
+      largestSize = size;
+      largestLabel = index + 1;
+    }
+  });
   const kept = new Uint8Array(foreground.length);
   for (let i = 0; i < kept.length; i += 1) kept[i] = labels[i] === largestLabel && largestLabel !== 0 ? 1 : 0;
+  return kept;
+}
+
+/**
+ * 多笔画模式（线稿）：保留所有面积达标的前景连通域，删除细小噪点。
+ * 线稿由多条断开的笔画组成，只留最大连通域会把画撕碎，因此按面积过滤而非取最大。
+ */
+export function keepSignificantForegroundComponents(foreground: Uint8Array, width: number, height: number): Uint8Array {
+  const { labels, sizes } = labelForegroundComponents(foreground, width, height);
+  // 最小面积：至少 24 像素，或占画面 0.02%，二者取大（抑制抗锯齿碎点）。
+  const minimum = Math.max(24, Math.round(width * height * 0.0002));
+  const significant = new Uint8Array(sizes.length + 1);
+  sizes.forEach((size, index) => {
+    if (size >= minimum) significant[index + 1] = 1;
+  });
+  const kept = new Uint8Array(foreground.length);
+  for (let i = 0; i < kept.length; i += 1) kept[i] = significant[labels[i]] ? 1 : 0;
   return kept;
 }
 
@@ -161,10 +189,13 @@ export async function vectorizePhoto(base64: string, options?: PhotoVectorizeOpt
     const raw = otsuThreshold(gray);
     const threshold = Math.max(30, Math.min(225, raw + (options?.thresholdBias ?? 0)));
 
-    // 3. 二值化后只保留最大黑色连通域，删除天空黑点等悬空孤岛。
+    // 3. 二值化后做连通域筛选：默认只保留最大黑色连通域（删天空黑点等悬空孤岛）；
+    //    multiStroke（线稿）模式保留所有面积达标的笔画，只删细小噪点。
     const foreground = new Uint8Array(width * height);
     for (let i = 0; i < foreground.length; i += 1) foreground[i] = gray[i] < threshold ? 1 : 0;
-    const connectedForeground = keepLargestForegroundComponent(foreground, width, height);
+    const connectedForeground = options?.multiStroke
+      ? keepSignificantForegroundComponents(foreground, width, height)
+      : keepLargestForegroundComponent(foreground, width, height);
     const foregroundPixels = connectedForeground.reduce((sum, value) => sum + value, 0);
     const foregroundRatio = foregroundPixels / connectedForeground.length;
     const holeCount = countMeaningfulHoles(connectedForeground, width, height);
@@ -178,9 +209,9 @@ export async function vectorizePhoto(base64: string, options?: PhotoVectorizeOpt
     }
     const binBuffer = PNG.sync.write(bin);
 
-    // 4. Potrace 矢量化（输入已是纯黑白，threshold 无需再设）
+    // 4. Potrace 矢量化（输入已是纯黑白，threshold 无需再设）；线稿用更小的 turdSize 避免细笔画被当噪点删掉
     const result = await potraceVectorize(binBuffer.toString("base64"), {
-      turdSize: options?.turdSize ?? 8,
+      turdSize: options?.turdSize ?? (options?.multiStroke ? 3 : 8),
       optCurve: true,
       optTolerance: 0.4,
       blackOnWhite: true,

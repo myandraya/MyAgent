@@ -1,8 +1,9 @@
 import { callDeepSeekJson, hasDeepSeekKey } from "../../../lib/deepseek.ts";
 import { generateCitySilhouetteImage, hasImageGenConfig } from "../../../lib/image-gen.ts";
 import { potraceVectorize } from "../../../lib/potrace-vectorize.ts";
-import { composeSilhouette, composeSilhouetteSelection, validateSceneDesign } from "../../../lib/silhouette.ts";
-import { generateFallbackSilhouette } from "../../../lib/silhouette-generators.ts";
+import { composeSilhouetteSelection, validateSceneDesign } from "../../../lib/silhouette.ts";
+import { buildCityNameXml, computeCityNameLayout } from "../../../lib/text-path.ts";
+import { resolveEnglishCityName } from "../../../data/cities.ts";
 import { allow, clientIp } from "../../../lib/rate-limit.ts";
 
 type SceneResult = {
@@ -13,7 +14,11 @@ type SceneResult = {
   engravePaths: string[];
   fillPaths: string[];
   paths: string[];   // 兼容旧客户端：合并所有层
-  source: "image-gen" | "offline";
+  source: "image-gen";
+  cityNameXml?: string;
+  cityNameText?: string;
+  cityNamePath?: string;
+  cityNameLayout?: { x: number; baselineY: number; glyphTopY: number };
   agent?: { rounds: number; status: "completed" | "degraded"; events: SceneAgentEvent[] };
 };
 
@@ -123,7 +128,10 @@ async function runSceneAgent(input: { memory: string; initial: SceneBrief; signa
       system: `你是城市木刻师的场景生成 ReAct 调度器。每轮只输出 JSON，不得输出私有思维链：
 {"action":"search_landmarks|revise_brief|finish","decision":"不超过120字的可见决策摘要","brief":{"city":"","cityEn":"","country":"","explicitLandmark":"","landmark":"","landmarkEn":"","subjectType":"city|nature","visualAnchors":["2到4个可见特征"],"composition":"不超过240字的单主体构图指令"}}
 动作规则：首轮标准化地点并选 search_landmarks；看到检索观察后用 revise_brief 修订；简报已有真实单主体、2到4个可见特征且无虚构时选 finish。
-优先级：用户明确主体 > 检索证据 > 高置信城市典型场景。禁止拼接不相邻地标、虚构建筑或添加背景碎片。`,
+硬性要求：landmark 必须是某一栋具体的单体建筑或构筑物（如钟楼、歌剧院、灯塔、城门），不得是城市天际线、街区、全景或建筑群；composition 必须指明「单一建筑、正面或弱透视视角、竖幅构图、主体占满画面、四周留白」。
+visualAnchors 只描述决定建筑辨识度的关键特征（如塔楼数量、屋顶形状、钟面、穹顶、拱门、平台），不要罗列窗格、雕花等细部。
+composition 须与最终几何镂空风格一致：主要结构规整、次要细节主动合并为少量几何开孔；不得要求保留每个窗格或装饰。
+优先级：用户明确主体 > 检索证据 > 高置信城市典型场景。禁止拼接不相邻地标、虚构建筑、绘制天际线或添加背景碎片。`,
       user: { round, maxRounds: 3, memory: input.memory, currentBrief: brief, candidates, observations: observations.slice(-4) },
     });
     rounds = round;
@@ -161,7 +169,7 @@ export const maxDuration = 120;
 
 export async function POST(request: Request): Promise<Response> {
   // 限流：同一 IP 每 15 秒最多 1 次，防止脚本刷量盗刷 AI 额度。
-  if (!allow(clientIp(request), 1, 15_000)) {
+  if (!allow(clientIp(request), 1, 15_000, "scene")) {
     return Response.json({ error: "生成太频繁，请稍后再试。" }, { status: 429 });
   }
 
@@ -174,16 +182,18 @@ export async function POST(request: Request): Promise<Response> {
     return Response.json({ error: "请输入 1..160 个字符的城市记忆。" }, { status: 400 });
   }
 
-  // 1. 离线兜底先行，保证用户立刻有可见剪影。
-  const fallback = composeSilhouette(prompt);
+  // 1. 从 prompt 启发式提取城市名/地标名，作为 DeepSeek 初始 brief 的占位（不再生成任何离线兜底图）。
+  const cityMatch = prompt.match(/([\u4e00-\u9fff]{2,}(?:市|城|镇)?)|([A-Z][a-z]+(?:\s[A-Z][a-z]+)?)/);
+  const initialCity = (cityMatch?.[1] || cityMatch?.[2] || prompt.slice(0, 12)).trim();
+  const initialLandmark = prompt.replace(cityMatch?.[0] ?? "", "").replace(/[\s,，。.!！?？]/g, "").slice(0, 12) || initialCity;
 
   // 2. DeepSeek 先标准化城市与用户意图，不在这一阶段凭空猜地标。
   let sceneBrief: SceneBrief = {
-    city: fallback.city.name,
-    cityEn: fallback.city.name,
+    city: initialCity,
+    cityEn: initialCity,
     country: "",
     explicitLandmark: "",
-    landmark: fallback.landmarkNames[0] ?? fallback.city.name,
+    landmark: initialLandmark,
     landmarkEn: "",
     subjectType: "city",
     visualAnchors: [],
@@ -215,8 +225,13 @@ export async function POST(request: Request): Promise<Response> {
           cityName, [landmark], "2023-06-01", [],
           { cutPaths: [], scorePaths: [], engravePaths: [], fillPaths: [result.path] },
         );
-        // 上线硬门槛：AI 生成结果必须通过制造校验才下发；不合格则降级到参数化兜底。
+        // 上线硬门槛：AI 生成结果必须通过制造校验才下发；不合格则返回错误。
         if (validateSceneDesign(design)) {
+          // 城市英文名 → 建筑下方艺术字雕刻（仅在能解析出英文名时追加）。
+          // 布局数值（字号/位置）服务端算好下发，前端 generateSilhouetteSvg 只用数值定位。
+          const cityNameEn = resolveEnglishCityName(cityEn || cityName) || resolveEnglishCityName(cityName);
+          const nameLayout = cityNameEn ? computeCityNameLayout(cityNameEn) : null;
+          const cityNameXml = nameLayout ? buildCityNameXml(cityNameEn) : "";
           const sceneResult: SceneResult = {
             city: design.city.slug,
             landmark,
@@ -226,6 +241,10 @@ export async function POST(request: Request): Promise<Response> {
             fillPaths: design.fillPaths,
             paths: design.paths,
             source: "image-gen",
+            cityNameXml: cityNameXml || undefined,
+            cityNameText: cityNameEn || undefined,
+            cityNamePath: nameLayout ? nameLayout.path : undefined,
+            cityNameLayout: nameLayout ? { x: nameLayout.x, baselineY: nameLayout.baselineY, glyphTopY: nameLayout.glyphTopY } : undefined,
             agent: agentResult && { rounds: agentResult.rounds, status: agentResult.status, events: agentResult.events },
           };
           return Response.json(sceneResult);
@@ -234,22 +253,9 @@ export async function POST(request: Request): Promise<Response> {
     }
   }
 
-  // 5. 降级：参数化兜底生成器（分层输出，镂空版）。
-  const generated = generateFallbackSilhouette(cityName, landmark);
-  const design = composeSilhouetteSelection(
-    cityName, generated.landmarkNames, "2023-06-01", generated.paths,
-    { cutPaths: generated.cutPaths, scorePaths: generated.scorePaths, engravePaths: generated.engravePaths, fillPaths: generated.fillPaths },
+  // 5. AI 生成失败（无图像 key / 生成失败 / 未通过制造校验）时，不再产出参数化天际线兜底，直接返回明确错误。
+  return Response.json(
+    { error: "生成失败，请稍后重试或换个描述。" },
+    { status: 502 },
   );
-  const sceneResult: SceneResult = {
-    city: design.city.slug,
-    landmark,
-    cutPaths: design.cutPaths,
-    scorePaths: design.scorePaths,
-    engravePaths: design.engravePaths,
-    fillPaths: design.fillPaths,
-    paths: design.paths,
-    source: "offline",
-    agent: agentResult && { rounds: agentResult.rounds, status: agentResult.status, events: agentResult.events },
-  };
-  return Response.json(sceneResult);
 }
