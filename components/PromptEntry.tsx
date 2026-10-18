@@ -555,7 +555,7 @@ export function PromptEntry({ onBack, seedPrompt = "" }: { onBack: () => void; s
   // 当前确认的建筑名（供 searching/working/done 阶段全程回显，让用户始终看见自己选的是哪栋）。
   const currentBuilding = resolvedPlace?.landmark || resolvedPlace?.city || design?.landmarkNames?.[0] || "";
 
-  return <section className="special-entry">
+  return <section className={`special-entry${stage === "done" ? " done" : ""}`}>
     <div className="entry-copy"><h1 dangerouslySetInnerHTML={{ __html: t("prompt_title") }} /><button className="secondary" onClick={handleBack}>{t("back_home")}</button></div>
     <div className="question-card glass">
       {stage === "input" && (

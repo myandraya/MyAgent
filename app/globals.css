@@ -527,6 +527,10 @@ h1 { margin: 0; font-size: clamp(44px, 7vw, 84px); line-height: 1.12; font-weigh
 
 /* ---------- 照片 / 剪影入口 ---------- */
 .special-entry { flex: 1; display: grid; grid-template-columns: minmax(0, .7fr) minmax(0, 1.3fr); align-items: center; justify-content: center; gap: clamp(24px, 4vw, 56px); max-width: 1200px; margin: 0 auto; padding: clamp(28px, 5vh, 64px) 0; width: 100%; }
+/* 结果页（done）：左栏标题/返回按钮固定在视口内，只有右栏结果区内部滚动 */
+.special-entry.done { flex: 0 0 auto; height: calc(100vh - 72px); min-height: 0; align-items: stretch; overflow: hidden; }
+.special-entry.done .entry-copy { align-self: center; }
+.special-entry.done .question-card { align-self: stretch; max-height: 100%; overflow-y: auto; }
 /* 卡片入场：左栏文案与右侧玻璃卡从下方上浮 + 轻微过冲回弹 */
 .special-entry .entry-copy { animation: card-rise .6s var(--ease-spring) both; }
 .special-entry .question-card { animation: card-rise .6s var(--ease-spring) .08s both; }
@@ -699,6 +703,9 @@ h1 { margin: 0; font-size: clamp(44px, 7vw, 84px); line-height: 1.12; font-weigh
   .entry-card strong { font-size: 14px; }
   .topbar .muted { display: none; }
   .special-entry { grid-template-columns: 1fr; gap: 20px; }
+  .special-entry.done { height: auto; min-height: auto; align-items: center; overflow: visible; }
+  .special-entry.done .entry-copy { align-self: auto; }
+  .special-entry.done .question-card { align-self: auto; max-height: none; overflow-y: visible; }
   .entry-copy h1 { white-space: normal; }
   .entry-result { align-items: flex-start; flex-direction: column; }
   .gallery-grid { grid-template-columns: 1fr; }
